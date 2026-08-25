@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import path from 'path';
+import Papa from 'papaparse';
 
 // Types
 type RazorpayRecord = {
@@ -42,6 +43,10 @@ type LedgerRecord = {
 
 const NUM_RECORDS = 150;
 
+function dateOnly(date: Date): string {
+  return date.toISOString().split('T')[0] ?? '';
+}
+
 function generateData() {
   const razorpayRecords: RazorpayRecord[] = [];
   const bankRecords: BankRecord[] = [];
@@ -62,7 +67,7 @@ function generateData() {
     const invoiceId = `INV-${2026}-${faker.string.numeric(4)}`;
     const utr = `UTR${faker.string.numeric(12)}`;
     const date = faker.date.recent({ days: 30 });
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = dateOnly(date);
     
     // Determine the type of record to simulate real-world anomalies
     const rand = Math.random();
@@ -128,7 +133,7 @@ function generateData() {
 
       currentBalance += netAmount;
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: settledDate.toISOString().split('T')[0],
+        txn_id: `TXN${faker.string.numeric(10)}`, date: dateOnly(settledDate),
         narration: `RTGS-RAZORPAY-${paymentId}`, credit: netAmount, debit: 0,
         balance: currentBalance, utr, mode: 'RTGS'
       });
@@ -222,8 +227,6 @@ function generateData() {
   }
 
   // Write to CSV format using PapaParse
-  const Papa = require('papaparse');
-  
   fs.writeFileSync(path.join(dataDir, 'razorpay_payments.csv'), Papa.unparse(razorpayRecords));
   fs.writeFileSync(path.join(dataDir, 'bank_statement.csv'), Papa.unparse(bankRecords));
   fs.writeFileSync(path.join(dataDir, 'internal_ledger.csv'), Papa.unparse(ledgerRecords));
