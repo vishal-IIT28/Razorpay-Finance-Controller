@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ReconciliationRun {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  status          String   // e.g., "processing", "completed", "failed"
+  totalRecords    Int      @default(0)
+  matchedRecords  Int      @default(0)
+  exceptions      Int      @default(0)
+  precision       Float?
+  recall          Float?
+  matchResults    MatchResult[]
+  exceptionLogs   ExceptionLog[]
+}
+
+model MatchResult {
+  id                  String   @id @default(uuid())
+  runId               String
+  run                 ReconciliationRun @relation(fields: [runId], references: [id])
+  paymentId           String?
+  bankTxnId           String?
+  ledgerEntryId       String?
+  matchPass           Int      // 1 = Deterministic, 2 = Fuzzy, 3 = LLM
+  confidenceScore     Float    // 0.0 to 1.0
+  notes               String?
+  createdAt           DateTime @default(now())
+}
+
+model ExceptionLog {
+  id                  String   @id @default(uuid())
+  runId               String
+  run                 ReconciliationRun @relation(fields: [runId], references: [id])
+  sourceSystem        String   // "Razorpay", "Bank", "Ledger"
+  sourceId            String   // The ID of the unmatched record
+  reasoning           String?  // LLM's explanation of why it couldn't be matched
+  suggestedAction     String?  // LLM's suggested fix
+  createdAt           DateTime @default(now())
+}
