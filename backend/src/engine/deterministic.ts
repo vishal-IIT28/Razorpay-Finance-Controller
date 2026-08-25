@@ -44,11 +44,33 @@ export interface MatchResult {
   notes: string;
 }
 
+export interface ReconciliationPassResult {
+  matches: MatchResult[];
+  unmatched: {
+    razorpay: RzpRecord[];
+    bank: BankRecord[];
+    ledger: LedgerRecord[];
+  };
+}
+
+export function toMoney(value: number | string | null | undefined): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : 0;
+}
+
+export function getDatePart(value: string | null | undefined): string {
+  return value?.split('T')[0] ?? '';
+}
+
+export function getRazorpayNetAmount(rzp: RzpRecord): number {
+  return toMoney(toMoney(rzp.amount) - toMoney(rzp.fee) - toMoney(rzp.tax));
+}
+
 export function runDeterministicPass(
   razorpay: RzpRecord[],
   bank: BankRecord[],
   ledger: LedgerRecord[]
-) {
+): ReconciliationPassResult {
   const matches: MatchResult[] = [];
   const unmatchedRzp: RzpRecord[] = [];
   const unmatchedBank = new Set(bank.map((b) => b.txn_id));
@@ -66,26 +88,22 @@ export function runDeterministicPass(
       continue;
     }
 
-    // Find exactly matching bank record (narration contains payment_id AND exact net amount)
-    const expectedNetAmount = parseFloat((rzp.amount - rzp.fee - rzp.tax).toFixed(2));
-    
-    // Convert RZP created_at to YYYY-MM-DD
-    const rzpDate = rzp.created_at.split('T')[0];
+    const expectedNetAmount = getRazorpayNetAmount(rzp);
+    const settlementDate = getDatePart(rzp.settled_at) || getDatePart(rzp.created_at);
 
     const matchedBank = bank.find(
       (b) =>
         unmatchedBank.has(b.txn_id) &&
-        b.narration.includes(rzp.payment_id) &&
-        Number(b.credit) === expectedNetAmount &&
-        b.date === rzpDate
+        (b.narration.includes(rzp.payment_id) || b.utr === rzp.payment_id) &&
+        toMoney(b.credit) === expectedNetAmount &&
+        b.date === settlementDate
     );
 
-    // Find exactly matching ledger record (payment_ref == payment_id AND expected_amount == amount)
     const matchedLedger = ledger.find(
       (l) =>
         unmatchedLedger.has(l.entry_id) &&
         l.payment_ref === rzp.payment_id &&
-        Number(l.expected_amount) === Number(rzp.amount)
+        toMoney(l.expected_amount) === toMoney(rzp.amount)
     );
 
     if (matchedBank && matchedLedger) {
@@ -95,7 +113,7 @@ export function runDeterministicPass(
         ledger_entry_id: matchedLedger.entry_id,
         match_pass: 1, // Pass 1: Deterministic
         confidence: 1.0,
-        notes: 'Exact match across all three systems.',
+        notes: 'Exact payment reference, amount, and settlement date across all three systems.',
       });
       unmatchedBank.delete(matchedBank.txn_id);
       unmatchedLedger.delete(matchedLedger.entry_id);
@@ -104,7 +122,6 @@ export function runDeterministicPass(
     }
   }
 
-  // Convert Set back to arrays
   const remainingBank = Array.from(unmatchedBank).map((id) => bankMap.get(id)!);
   const remainingLedger = Array.from(unmatchedLedger).map((id) => ledgerMap.get(id)!);
 
