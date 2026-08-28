@@ -51,14 +51,36 @@ export default function Dashboard() {
     }
   };
 
+  const handleExportReport = () => {
+    if (!data) return;
+    const reportJson = JSON.stringify(data, null, 2);
+    const blob = new Blob([reportJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reconciliation-report-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <main className="min-h-screen bg-slate-900 text-slate-100 p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
-        <header className="border-b border-slate-800 pb-5">
-          <h1 className="text-3xl font-bold tracking-tight text-white">FinReconcile AI</h1>
-          <p className="text-slate-400 text-sm mt-1">Multi-Source Financial Reconciliation Engine (Razorpay · Bank · Ledger)</p>
+        <header className="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">FinReconcile AI</h1>
+            <p className="text-slate-400 text-sm mt-1">Multi-Source Financial Reconciliation Engine (Razorpay · Bank · Ledger)</p>
+          </div>
+          {data && (
+            <button
+              onClick={handleExportReport}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm self-start md:self-auto"
+            >
+              Export Audit Report (JSON)
+            </button>
+          )}
         </header>
 
         {/* Upload Panel */}
