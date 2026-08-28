@@ -12,7 +12,7 @@ async function run() {
     process.exit(1);
   }
 
-  const modelName = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   console.log(`Testing Gemini API connectivity with model: ${modelName}...`);
 
   try {

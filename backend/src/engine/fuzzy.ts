@@ -44,7 +44,7 @@ export function runFuzzyPass(
   const bankFuse = new Fuse(unmatchedBank, {
     keys: ['narration', 'utr'],
     includeScore: true,
-    threshold: 0.5,
+    threshold: 0.6,
     ignoreLocation: true,
   });
 
@@ -67,6 +67,7 @@ export function runFuzzyPass(
     const invoiceId = extractInvoiceId(rzp.description);
 
     const bankResults = bankFuse.search(rzp.payment_id.replace('pay_', ''));
+
     const matchedBank = bankResults.find((result) => {
       const bank = result.item;
       if (usedBankIds.has(bank.txn_id)) return false;
@@ -82,24 +83,8 @@ export function runFuzzyPass(
       return isAmountClose(toMoney(ledger.expected_amount), toMoney(rzp.amount));
     });
 
-    const bankFallback = matchedBank
-      ? undefined
-      : unmatchedBank.find((bank) => {
-          if (usedBankIds.has(bank.txn_id)) return false;
-          const amountOk = isAmountClose(toMoney(bank.credit), expectedNet);
-          const dateOk = daysDiff(bank.date, settledDate) <= DATE_TOLERANCE_DAYS;
-          return amountOk && dateOk;
-        });
-
-    const chosenBank = matchedBank?.item ?? bankFallback;
-    const chosenLedger =
-      matchedLedger?.item ??
-      unmatchedLedger.find((ledger) => {
-        if (usedLedgerIds.has(ledger.entry_id)) return false;
-        const referenceOk = ledger.payment_ref === rzp.payment_id || Boolean(invoiceId && ledger.invoice_id === invoiceId);
-        const amountOk = isAmountClose(toMoney(ledger.expected_amount), toMoney(rzp.amount));
-        return referenceOk && amountOk;
-      });
+    const chosenBank = matchedBank?.item;
+    const chosenLedger = matchedLedger?.item;
 
     if (chosenBank && chosenLedger) {
       const bankScore = matchedBank?.score ?? 0.5;

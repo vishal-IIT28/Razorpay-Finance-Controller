@@ -26,7 +26,7 @@ export type LlmPassResult = ReconciliationPassResult & {
   decisions: LlmDecision[];
 };
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const MIN_CONFIDENCE = 0.6; // Lower slightly to capture fee variance cases
 const MAX_RECORDS = Number(process.env.LLM_MAX_RECORDS ?? 50);
 
@@ -66,6 +66,8 @@ export async function runLlmPass(
   const usedLedgerIds = new Set<string>();
   const stillUnmatchedRzp: RzpRecord[] = [];
 
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   for (const rzp of unmatchedRzp.slice(0, MAX_RECORDS)) {
     const candidateBanks = pickBankCandidates(rzp, unmatchedBank).filter((bank) => !usedBankIds.has(bank.txn_id));
     const candidateLedgers = pickLedgerCandidates(rzp, unmatchedLedger).filter(
@@ -77,8 +79,57 @@ export async function runLlmPass(
       continue;
     }
 
+    // Pacing delay (3.2 seconds = ~18 RPM, staying safely under 20 RPM limit)
+    await delay(3200);
+
+    let result: any = null;
+    let attempts = 0;
+    const maxRetries = 3;
+    let success = false;
+    let lastError: Error | null = null;
+    
+    while (attempts <= maxRetries && !success) {
+      try {
+        result = await model.generateContent(buildPrompt(rzp, candidateBanks, candidateLedgers));
+        success = true;
+      } catch (error: any) {
+        lastError = error;
+        attempts++;
+        const errMsg = error.message || '';
+        
+        if (errMsg.includes('429') || errMsg.includes('503') || errMsg.includes('Too Many Requests')) {
+          if (attempts > maxRetries) break;
+          // Try to extract Retry-After from Google's error string
+          let waitMs = 5000 * Math.pow(2, attempts - 1); 
+          const retryMatch = errMsg.match(/retry in ([\d\.]+)s/i);
+          if (retryMatch && retryMatch[1]) {
+             waitMs = parseFloat(retryMatch[1]) * 1000 + 1000; // Add 1s buffer
+          }
+          console.warn(`[Pass 3 API Limit] Retrying ${rzp.payment_id} in ${Math.round(waitMs/1000)}s (Attempt ${attempts}/${maxRetries})...`);
+          await delay(waitMs);
+        } else {
+          // Break immediately on non-transient errors
+          break;
+        }
+      }
+    }
+
+    if (!success) {
+      notes.push(`Pass 3 failed for ${rzp.payment_id} (Retries exhausted): ${lastError ? lastError.message : 'unknown error'}`);
+      stillUnmatchedRzp.push(rzp);
+      decisions.push({
+        matched: false,
+        payment_id: rzp.payment_id,
+        bank_txn_ids: [],
+        ledger_entry_id: null,
+        confidence: 0,
+        reasoning: 'LLM call failed after retries exhausted.',
+        suggested_action: 'Retry processing or escalate.',
+      });
+      continue;
+    }
+
     try {
-      const result = await model.generateContent(buildPrompt(rzp, candidateBanks, candidateLedgers));
       const decision = parseDecision(result.response.text(), rzp.payment_id);
       decisions.push(decision);
 
@@ -101,7 +152,7 @@ export async function runLlmPass(
         stillUnmatchedRzp.push(rzp);
       }
     } catch (error) {
-      notes.push(`Pass 3 failed for ${rzp.payment_id}: ${error instanceof Error ? error.message : 'unknown error'}`);
+      notes.push(`Pass 3 parse failed for ${rzp.payment_id}: ${error instanceof Error ? error.message : 'unknown error'}`);
       stillUnmatchedRzp.push(rzp);
     }
   }
