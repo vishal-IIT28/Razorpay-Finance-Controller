@@ -9,7 +9,8 @@ import { runDeterministicPass, RzpRecord, BankRecord, LedgerRecord, MatchResult,
 import { runFuzzyPass } from './engine/fuzzy';
 import { runLlmPass } from './engine/llm';
 
-dotenv.config();
+// dotenv.config();
+dotenv.config({ path: ['.env', '../.env'] });
 
 const app = express();
 const port = process.env.PORT || 3001;

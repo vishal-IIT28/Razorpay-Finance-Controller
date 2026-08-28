@@ -26,8 +26,8 @@ export type LlmPassResult = ReconciliationPassResult & {
   decisions: LlmDecision[];
 };
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-const MIN_CONFIDENCE = 0.7;
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+const MIN_CONFIDENCE = 0.6; // Lower slightly to capture fee variance cases
 const MAX_RECORDS = Number(process.env.LLM_MAX_RECORDS ?? 50);
 
 export async function runLlmPass(
@@ -129,31 +129,32 @@ function pickBankCandidates(rzp: RzpRecord, bankRecords: BankRecord[]): BankReco
   const expectedNet = getRazorpayNetAmount(rzp);
   const idFragment = rzp.payment_id.replace('pay_', '').slice(0, 6).toLowerCase();
 
-  return bankRecords
-    .map((bank) => ({
-      bank,
-      score:
-        (bank.narration.toLowerCase().includes(idFragment) ? 0 : 4) +
-        Math.min(Math.abs(toMoney(bank.credit) - expectedNet) / Math.max(expectedNet, 1), 1) +
-        Math.min(dateDistance(bank.date, settlementDate) / 5, 1),
-    }))
-    .sort((a, b) => a.score - b.score)
+  const scored = bankRecords.map((bank) => ({
+    bank,
+    score:
+      (bank.narration.toLowerCase().includes(idFragment) ? 0 : 4) +
+      Math.min(Math.abs(toMoney(bank.credit) - expectedNet) / Math.max(expectedNet, 1), 1) +
+      Math.min(dateDistance(bank.date, settlementDate) / 5, 1),
+  })).sort((a, b) => a.score - b.score);
+
+  // Fallback: return top candidates even if confidence score threshold is high
+  return (scored.length > 0 ? scored : bankRecords.map(b => ({ bank: b, score: 1 })))
     .slice(0, 8)
     .map((item) => item.bank);
-}
+}  
 
 function pickLedgerCandidates(rzp: RzpRecord, ledgerRecords: LedgerRecord[]): LedgerRecord[] {
   const invoiceId = rzp.description.match(/INV-\d{4}-\d{4}/)?.[0];
 
-  return ledgerRecords
-    .map((ledger) => ({
-      ledger,
-      score:
-        (ledger.payment_ref === rzp.payment_id ? 0 : 3) +
-        (invoiceId && ledger.invoice_id === invoiceId ? 0 : 2) +
-        Math.min(Math.abs(toMoney(ledger.expected_amount) - toMoney(rzp.amount)) / Math.max(toMoney(rzp.amount), 1), 1),
-    }))
-    .sort((a, b) => a.score - b.score)
+  const scored = ledgerRecords.map((ledger) => ({
+    ledger,
+    score:
+      (ledger.payment_ref === rzp.payment_id ? 0 : 3) +
+      (invoiceId && ledger.invoice_id === invoiceId ? 0 : 2) +
+      Math.min(Math.abs(toMoney(ledger.expected_amount) - toMoney(rzp.amount)) / Math.max(toMoney(rzp.amount), 1), 1),
+  })).sort((a, b) => a.score - b.score);
+
+  return (scored.length > 0 ? scored : ledgerRecords.map(l => ({ ledger: l, score: 1 })))
     .slice(0, 5)
     .map((item) => item.ledger);
 }

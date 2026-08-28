@@ -47,10 +47,17 @@ function dateOnly(date: Date): string {
   return date.toISOString().split('T')[0] ?? '';
 }
 
+type GroundTruth = {
+  bank_txn_ids: string[];
+  ledger_entry_id: string | null;
+  anomaly_type: string;
+};
+
 function generateData() {
   const razorpayRecords: RazorpayRecord[] = [];
   const bankRecords: BankRecord[] = [];
   const ledgerRecords: LedgerRecord[] = [];
+  const groundTruth: Record<string, GroundTruth> = {};
   
   let currentBalance = 100000;
 
@@ -82,17 +89,21 @@ function generateData() {
       });
 
       currentBalance += netAmount;
+      const bankId = `TXN${faker.string.numeric(10)}`;
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateString,
+        txn_id: bankId, date: dateString,
         narration: `NEFT-RAZORPAY-${paymentId}`, credit: netAmount, debit: 0,
         balance: currentBalance, utr, mode: 'NEFT'
       });
 
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: paymentId
       });
+      
+      groundTruth[paymentId] = { bank_txn_ids: [bankId], ledger_entry_id: ledgerId, anomaly_type: 'exact' };
     } 
     // 2. Amount Mismatch (Bank deducted extra fee or manual partial payment) (15%)
     else if (rand < 0.55) {
@@ -106,18 +117,22 @@ function generateData() {
       const randomBankFee = parseFloat(faker.commerce.price({ min: 10, max: 50, dec: 2 }));
       const bankCredit = parseFloat((netAmount - randomBankFee).toFixed(2));
       currentBalance += bankCredit;
+      const bankId = `TXN${faker.string.numeric(10)}`;
 
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateString,
+        txn_id: bankId, date: dateString,
         narration: `IMPS-RAZORPAY-${paymentId}`, credit: bankCredit, debit: 0,
         balance: currentBalance, utr, mode: 'IMPS'
       });
 
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: paymentId
       });
+      
+      groundTruth[paymentId] = { bank_txn_ids: [bankId], ledger_entry_id: ledgerId, anomaly_type: 'amount_mismatch' };
     }
     // 3. Date Drift (15%)
     else if (rand < 0.70) {
@@ -132,17 +147,21 @@ function generateData() {
       });
 
       currentBalance += netAmount;
+      const bankId = `TXN${faker.string.numeric(10)}`;
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateOnly(settledDate),
+        txn_id: bankId, date: dateOnly(settledDate),
         narration: `RTGS-RAZORPAY-${paymentId}`, credit: netAmount, debit: 0,
         balance: currentBalance, utr, mode: 'RTGS'
       });
 
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: paymentId
       });
+      
+      groundTruth[paymentId] = { bank_txn_ids: [bankId], ledger_entry_id: ledgerId, anomaly_type: 'date_drift' };
     }
     // 4. Narration Variance (Fuzzy Match needed) (10%)
     else if (rand < 0.80) {
@@ -156,18 +175,22 @@ function generateData() {
       currentBalance += netAmount;
       // Intentionally mangled narration
       const mangledNarration = `UPI/RZP*/${faker.string.alphanumeric(6)}/${paymentId.substring(4, 10)}...`;
+      const bankId = `TXN${faker.string.numeric(10)}`;
       
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateString,
+        txn_id: bankId, date: dateString,
         narration: mangledNarration, credit: netAmount, debit: 0,
         balance: currentBalance, utr, mode: 'UPI'
       });
 
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: null // Missing ref in ledger
       });
+      
+      groundTruth[paymentId] = { bank_txn_ids: [bankId], ledger_entry_id: ledgerId, anomaly_type: 'narration_variance' };
     }
     // 5. Missing Records / Drops (10%)
     else if (rand < 0.90) {
@@ -179,12 +202,15 @@ function generateData() {
       });
 
       // No bank record (failed transaction)
-
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: null
       });
+      
+      // Since it's failed, it shouldn't match anything in the bank
+      groundTruth[paymentId] = { bank_txn_ids: [], ledger_entry_id: ledgerId, anomaly_type: 'missing' };
     }
     // 6. Split Transactions (10%)
     else {
@@ -198,25 +224,30 @@ function generateData() {
       const split1 = parseFloat((netAmount * 0.6).toFixed(2));
       const split2 = parseFloat((netAmount - split1).toFixed(2));
 
+      const bankId1 = `TXN${faker.string.numeric(10)}`;
       currentBalance += split1;
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateString,
+        txn_id: bankId1, date: dateString,
         narration: `PART1-RAZORPAY-${paymentId}`, credit: split1, debit: 0,
         balance: currentBalance, utr: `UTR${faker.string.numeric(12)}`, mode: 'NEFT'
       });
 
+      const bankId2 = `TXN${faker.string.numeric(10)}`;
       currentBalance += split2;
       bankRecords.push({
-        txn_id: `TXN${faker.string.numeric(10)}`, date: dateString,
+        txn_id: bankId2, date: dateString,
         narration: `PART2-RAZORPAY-${paymentId}`, credit: split2, debit: 0,
         balance: currentBalance, utr: `UTR${faker.string.numeric(12)}`, mode: 'NEFT'
       });
 
+      const ledgerId = `LED-${faker.string.numeric(6)}`;
       ledgerRecords.push({
-        entry_id: `LED-${faker.string.numeric(6)}`, invoice_id: invoiceId,
+        entry_id: ledgerId, invoice_id: invoiceId,
         expected_amount: baseAmount, received_amount: null, customer_name: faker.company.name(),
         due_date: dateString, status: 'pending', payment_ref: paymentId
       });
+      
+      groundTruth[paymentId] = { bank_txn_ids: [bankId1, bankId2], ledger_entry_id: ledgerId, anomaly_type: 'split' };
     }
   }
 
@@ -230,8 +261,11 @@ function generateData() {
   fs.writeFileSync(path.join(dataDir, 'razorpay_payments.csv'), Papa.unparse(razorpayRecords));
   fs.writeFileSync(path.join(dataDir, 'bank_statement.csv'), Papa.unparse(bankRecords));
   fs.writeFileSync(path.join(dataDir, 'internal_ledger.csv'), Papa.unparse(ledgerRecords));
+  
+  // Write ground truth mapping
+  fs.writeFileSync(path.join(dataDir, 'ground_truth.json'), JSON.stringify(groundTruth, null, 2));
 
-  console.log('✅ Generated synthetic financial records.');
+  console.log('✅ Generated synthetic financial records and ground truth mapping.');
 }
 
 generateData();
