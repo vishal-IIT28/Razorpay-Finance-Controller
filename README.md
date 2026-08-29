@@ -30,7 +30,7 @@ Create a `.env` file in the `backend/` directory. You can copy the example:
 ```bash
 cp backend/.env.example backend/.env
 ```
-Ensure you provide your `DATABASE_URL` and `GEMINI_API_KEY`. The default model is `gemini-3.7-flash`.
+Ensure you provide your `DATABASE_URL` and `GEMINI_API_KEY`. The default model is `gemini-3.5-flash-lite`.
 
 ### 2. Backend & Database Setup
 ```bash

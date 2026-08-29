@@ -3,7 +3,7 @@
 **Submission Deadline:** September 5, 2026  
 **Last Updated:** August 29, 2026  
 **Current Branch:** `development`  
-**Official Benchmark (Run `fb0412c6-cb61-46c5-b394-d0efe7f3a8dd`):** 100.00% Precision | 91.91% Recall | 95.79% F1 Score | 0 Mismatches
+**Official Benchmark (Run `c1047fe3-7636-49af-968d-ffeed36d3d89`):** 100.00% Precision | 94.12% Recall | 96.97% F1 Score | 0 Mismatches
 
 ---
 
@@ -19,7 +19,7 @@
 - [x] **Fuzzy Pass Bug Fix (Greedy Consumption)**: Removed `bankFallback` and `ledgerFallback` that were greedily claiming records based solely on amount+date, causing 6 False Positives and cascading False Negatives.
 - [x] **Fuzzy Threshold Calibration**: Tuned `bankFuse` threshold from `0.50` to `0.60`. Recovered 100% of `narration_variance` records (20/20 TP) with 0 False Positives.
 - [x] **Pass 3 Rate Limit Hardening**: Implemented 3.2s pacing delay, Google `Retry-After` header extraction, exponential backoff (3 attempts) on 429/503 errors, and distinct exception classification.
-- [ ] **§2.1 Split Transaction Multi-Leg Optimization**: Trace and resolve the 3 remaining split transaction edge cases (currently at 81.3% recall, 13/16 TP).
+- [x] **§2.1 Split Transaction Multi-Leg Optimization**: Reached 100.0% recall on split transactions (16/16 TP, 0 FP, 0 FN) via narrow prompt instruction for split bank settlements net of fees.
 - [ ] **§2.2 LLM Reasoning & Prompt Optimization**: Refine candidate selection and few-shot prompt structure for remaining large-gap amount mismatches (>2% fee variance).
 
 ---

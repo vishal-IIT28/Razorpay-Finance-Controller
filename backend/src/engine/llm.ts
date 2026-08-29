@@ -214,7 +214,7 @@ function buildPrompt(rzp: RzpRecord, bankRecords: BankRecord[], ledgerRecords: L
   return JSON.stringify({
     role: 'finance reconciliation analyst',
     task:
-      'Decide whether one Razorpay payment can be reconciled to one ledger entry and one or more bank credits. Consider gateway fees, bank fee deductions, date drift, narration variance, and split settlements. Do not invent IDs.',
+      'Decide whether one Razorpay payment can be reconciled to one ledger entry and one or more bank credits. Consider gateway fees, bank fee deductions, date drift, narration variance, and split settlements. If the sum of split bank credits matches the net_settlement_amount (gross amount minus recorded fee and tax), treat this as a valid match (matched: true) equivalent to a single net credit. Do not invent IDs.',
     output_contract: {
       matched: 'boolean',
       payment_id: rzp.payment_id,
