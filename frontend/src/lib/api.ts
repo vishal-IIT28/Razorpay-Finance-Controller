@@ -1,27 +1,43 @@
+export interface ReconcileMatch {
+  payment_id: string;
+  bank_txn_id: string;
+  ledger_entry_id: string;
+  match_pass: 1 | 2 | 3;
+  confidence: number;
+  notes: string;
+}
+
+export interface ReconcileException {
+  source_system: string;
+  source_id: string;
+  reasoning: string;
+  suggested_action: string;
+}
+
 export interface ReconcileResponse {
-  runId: string;
+  message: string;
+  run_id: string;
   summary: {
-    totalRecords: number;
-    exactMatches: number;
-    fuzzyMatches: number;
-    llmMatches: number;
-    unmatchedExceptions: number;
-    matchRate: string;
+    total_records: number;
+    total_matched: number;
+    match_rate_pct: number;
+    exceptions: number;
   };
-  matches: Array<{
-    id: string;
-    pass: 'deterministic' | 'fuzzy' | 'llm';
-    razorpayId: string;
-    amount: number;
-    confidence: number;
-    reasoning?: string;
-  }>;
-  exceptions: Array<{
-    id: string;
-    source: string;
-    amount: number;
-    reason: string;
-  }>;
+  pass1: {
+    matched: number;
+  };
+  pass2: {
+    matched: number;
+    unmatched_remaining: number;
+  };
+  pass3: {
+    enabled: boolean;
+    matched: number;
+    unmatched_remaining: number;
+    notes: string[];
+  };
+  matches: ReconcileMatch[];
+  exceptions: ReconcileException[];
 }
 
 export async function uploadAndReconcile(

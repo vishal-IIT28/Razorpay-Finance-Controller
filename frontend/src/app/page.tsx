@@ -1,7 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { uploadAndReconcile } from '@/lib/api';
+import { uploadAndReconcile, ReconcileException, ReconcileResponse } from '@/lib/api';
+
+interface DashboardData {
+  summary: {
+    totalRecords: number;
+    matchRate: number;
+    pass1Matched: number;
+    pass2Matched: number;
+    pass3Matched: number;
+    exceptionsCount: number;
+  };
+  exceptions: ReconcileException[];
+}
 
 export default function Dashboard() {
   const [razorpayFile, setRazorpayFile] = useState<File | null>(null);
@@ -9,17 +21,7 @@ export default function Dashboard() {
   const [ledgerFile, setLedgerFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<{
-    summary: {
-      totalRecords: number;
-      matchRate: number;
-      pass1Matched: number;
-      pass2Matched: number;
-      pass3Matched: number;
-      exceptionsCount: number;
-    };
-    exceptions: any[];
-  } | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleReconcile = async () => {
@@ -31,21 +33,21 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
-      const res: any = await uploadAndReconcile(razorpayFile, bankFile, ledgerFile);
+      const res: ReconcileResponse = await uploadAndReconcile(razorpayFile, bankFile, ledgerFile);
 
       setData({
         summary: {
-          totalRecords: res.summary?.total_records ?? 0,
-          matchRate: res.summary?.match_rate_pct ?? 0,
-          pass1Matched: res.pass1?.matched ?? 0,
-          pass2Matched: res.pass2?.matched ?? 0,
-          pass3Matched: res.pass3?.matched ?? 0,
-          exceptionsCount: res.summary?.exceptions ?? (res.exceptions?.length || 0),
+          totalRecords: res.summary.total_records,
+          matchRate: res.summary.match_rate_pct,
+          pass1Matched: res.pass1.matched,
+          pass2Matched: res.pass2.matched,
+          pass3Matched: res.pass3.matched,
+          exceptionsCount: res.summary.exceptions,
         },
-        exceptions: res.exceptions || [],
+        exceptions: res.exceptions,
       });
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -164,7 +166,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {data.exceptions.map((exc: any, index: number) => (
+                    {data.exceptions.map((exc, index) => (
                       <tr key={`exc-${index}`} className="hover:bg-slate-800/30">
                         <td className="p-3 font-semibold text-slate-200">{exc.source_system}</td>
                         <td className="p-3 font-mono text-xs text-blue-400">{exc.source_id}</td>

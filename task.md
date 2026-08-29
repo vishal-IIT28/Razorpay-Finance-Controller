@@ -20,11 +20,12 @@
 - [x] **Fuzzy Threshold Calibration**: Tuned `bankFuse` threshold from `0.50` to `0.60`. Recovered 100% of `narration_variance` records (20/20 TP) with 0 False Positives.
 - [x] **Pass 3 Rate Limit Hardening**: Implemented 3.2s pacing delay, Google `Retry-After` header extraction, exponential backoff (3 attempts) on 429/503 errors, and distinct exception classification.
 - [x] **§2.1 Split Transaction Multi-Leg Optimization**: Reached 100.0% recall on split transactions (16/16 TP, 0 FP, 0 FN) via narrow prompt instruction for split bank settlements net of fees.
-- [ ] **§2.2 LLM Reasoning & Prompt Optimization**: Refine candidate selection and few-shot prompt structure for remaining large-gap amount mismatches (>2% fee variance).
+- [x] **§2.4 Frontend Type Safety Alignment**: Aligned `ReconcileResponse` interface with backend response payload and removed all `any` casts in `page.tsx`. Verified clean Next.js build.
 
 ---
 
-## 3. UI & Demo Polish
+## 3. Testing, Verification & Demo Polish
+- [x] **§3.1 Engine Unit Test Suite**: Added permanent unit test suite (`backend/test/engine.test.ts`) covering Pass 1 deterministic matching, date drift tolerance, 0.6 Fuse narration threshold, 2% amount tolerance boundaries, and anti-greedy fallback regression checks. All 8 tests passing.
 - [x] **Phase 4 Reconciliation Dashboard**: Completed live dashboard rendering Pass 1, Pass 2, Pass 3 (LLM), and Exception Queue metrics.
 - [x] **Audit Trail Export**: JSON audit report download from UI.
 - [ ] **Demo Video & Pitch Walkthrough**: Record 5-minute pitch demonstrating end-to-end reconciliation, 3-pass architecture, live evaluator execution, and honest failure analysis.
