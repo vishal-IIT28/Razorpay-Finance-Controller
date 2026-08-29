@@ -117,20 +117,29 @@ describe('Pass 2: Fuzzy Matching Engine', () => {
   });
 
   it('should match narration variance using 6-character ID fragment with calibrated 0.6 threshold', () => {
-    // payment_id is pay_ABC123XYZ456 -> substring fragment is 'ABC123'
-    const rzp = [createMockRzp({ payment_id: 'pay_NlqehDgGwLrMfp' })];
+    // Realistic generator pattern: mangled narration with 6-char fragment 'NlqehD' from 'pay_NlqehDgGwLrMfp'
+    // With Fuse threshold 0.5, searching 'NlqehDgGwLrMfp' returns 0 results. With 0.6, it succeeds.
+    const rzp = [createMockRzp({
+      payment_id: 'pay_NlqehDgGwLrMfp',
+      description: 'Payment for INV-2026-0001',
+    })];
     const bank = [createMockBank({
       txn_id: 'TXN99999',
-      narration: 'IMPS-RZP-NlqehD-MANGLED',
+      narration: 'UPI/RZP*/x8k2m9/NlqehD...',
       credit: 976.40,
     })];
-    const ledger = [createMockLedger({ payment_ref: 'pay_NlqehDgGwLrMfp' })];
+    // Ledger has payment_ref: null (as produced by generator for narration_variance) and matches via invoice_id
+    const ledger = [createMockLedger({
+      invoice_id: 'INV-2026-0001',
+      payment_ref: null,
+    })];
 
     const res = runFuzzyPass(rzp, bank, ledger);
 
     assert.equal(res.matches.length, 1);
     assert.equal(res.matches[0].payment_id, 'pay_NlqehDgGwLrMfp');
     assert.equal(res.matches[0].bank_txn_id, 'TXN99999');
+    assert.equal(res.matches[0].ledger_entry_id, 'LED-000001');
     assert.equal(res.matches[0].match_pass, 2);
   });
 
