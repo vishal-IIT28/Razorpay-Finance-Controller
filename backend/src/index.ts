@@ -283,7 +283,7 @@ app.get('/api/runs/:runId', async (req: Request, res: Response): Promise<void> =
 // Agentic Q&A Endpoints
 app.post(['/api/chat', '/api/runs/:runId/chat'], async (req: Request, res: Response): Promise<void> => {
   const runId = getParam(req.params.runId) || String(req.body.runId || '');
-  const { message } = req.body;
+  const { message, conversationId } = req.body;
 
   if (!runId || !message) {
     res.status(400).json({ error: 'Both "runId" and "message" are required.' });
@@ -291,7 +291,11 @@ app.post(['/api/chat', '/api/runs/:runId/chat'], async (req: Request, res: Respo
   }
 
   try {
-    const result = await handleChatMessage(runId, String(message).trim());
+    const result = await handleChatMessage(
+      runId,
+      String(message).trim(),
+      conversationId ? String(conversationId) : undefined
+    );
     res.json(result);
   } catch (error: any) {
     console.error('[chat error]', error);
@@ -302,17 +306,26 @@ app.post(['/api/chat', '/api/runs/:runId/chat'], async (req: Request, res: Respo
 // Chat Conversation History Retrieval
 app.get(['/api/chat/:runId', '/api/runs/:runId/chat'], async (req: Request, res: Response): Promise<void> => {
   const runId = getParam(req.params.runId);
+  const conversationId = req.query.conversationId ? String(req.query.conversationId) : undefined;
 
   try {
+    const whereClause: any = { runId };
+    if (conversationId) {
+      whereClause.conversationId = conversationId;
+    }
+
     const messages = await prisma.chatMessage.findMany({
-      where: { runId },
+      where: whereClause,
       orderBy: { createdAt: 'asc' },
     });
 
     res.json({
       run_id: runId,
+      conversation_id: conversationId || null,
+      count: messages.length,
       messages: messages.map((m) => ({
         id: m.id,
+        conversation_id: m.conversationId,
         role: m.role,
         content: m.content,
         tool_calls: m.toolCalls,

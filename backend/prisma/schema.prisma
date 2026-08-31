@@ -47,11 +47,14 @@ model ExceptionLog {
 }
 
 model ChatMessage {
-  id          String   @id @default(uuid())
-  runId       String
-  run         ReconciliationRun @relation(fields: [runId], references: [id])
-  role        String   // "user", "assistant", "system"
-  content     String
-  toolCalls   Json?    // Array of { tool: string, args: any, result: any }
-  createdAt   DateTime @default(now())
+  id              String   @id @default(uuid())
+  runId           String
+  conversationId  String   @default(uuid())
+  run             ReconciliationRun @relation(fields: [runId], references: [id])
+  role            String   // "user", "assistant", "system"
+  content         String
+  toolCalls       Json?    // Array of { tool: string, args: any, result: any }
+  createdAt       DateTime @default(now())
+
+  @@index([runId, conversationId])
 }

@@ -50,14 +50,16 @@
      - `searchRunData`: keyword/ID search across matches and exceptions.
    - Enforced grounding: answers cite verified IDs (`payment_id`, `bank_txn_id`, `ledger_entry_id`, `invoice_id`).
 
-4. **Conversation History Persistence**
-   - Added `ChatMessage` model in [backend/prisma/schema.prisma](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/prisma/schema.prisma).
-   - Deployed migration `20260831010000_add_chat_messages` to PostgreSQL.
-   - Endpoints: `POST /api/chat`, `POST /api/runs/:runId/chat`, `GET /api/runs/:runId/chat`.
+4. **Conversation History Persistence & Thread Isolation**
+   - Added `ChatMessage` model in [backend/prisma/schema.prisma](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/prisma/schema.prisma) with `conversationId String @default(uuid())` and composite index `@@index([runId, conversationId])`.
+   - Deployed migrations `20260831010000_add_chat_messages` and `20260831020000_add_conversation_id_to_chat_messages` to PostgreSQL.
+   - Scoped memory loading and retrieval endpoints: `POST /api/chat`, `POST /api/runs/:runId/chat`, `GET /api/runs/:runId/chat?conversationId=...`.
 
 5. **Headless Verification Scripts**
-   - [backend/scripts/test-chat.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-chat.ts): automated smoke test exercising 4 real Q&A queries against completed runs.
-   - [backend/scripts/test-schema-intake.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-schema-intake.ts): tests schema detection on standard, holdout, renamed, and incomplete datasets.
+   - [backend/scripts/test-chat.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-chat.ts): automated smoke test exercising 6 Q&A queries against completed runs, including `searchRunData` and unanswerable edge cases.
+   - [backend/scripts/test-chat-isolated-conversations.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-chat-isolated-conversations.ts): verifies multi-turn conversation isolation between independent sessions on the same run and single-condition invalid run refusals.
+   - [backend/scripts/test-ambiguous-schema.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-ambiguous-schema.ts): tests LLM schema fallback with reasoning output on unlabelled/generic CSVs.
+   - [backend/scripts/test-sse-stream.ts](file:///c:/Users/visha/Downloads/Razorpay-Finance-Controller/backend/scripts/test-sse-stream.ts): captures live per-record Pass 3 resolution events streamed over HTTP.
 
 ---
 

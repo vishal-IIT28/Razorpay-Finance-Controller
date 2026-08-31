@@ -14,6 +14,7 @@ export type ChatAgentResponse = {
   answer: string;
   toolCalls: ToolCallRecord[];
   runId: string;
+  conversationId: string;
   messageId: string;
 };
 
@@ -335,7 +336,12 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
 }
 
 // 3. Agent Execution Loop with Gemini Function Calling
-export async function handleChatMessage(runId: string, userMessage: string): Promise<ChatAgentResponse> {
+export async function handleChatMessage(
+  runId: string,
+  userMessage: string,
+  conversationId?: string
+): Promise<ChatAgentResponse> {
+  const activeConversationId = conversationId || crypto.randomUUID();
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured in backend environment.');
@@ -344,27 +350,21 @@ export async function handleChatMessage(runId: string, userMessage: string): Pro
   // Verify run exists
   const run = await prisma.reconciliationRun.findUnique({ where: { id: runId } });
   if (!run) {
-    const errorReply = `Error: Reconciliation run with ID "${runId}" does not exist in the database. Please verify the run ID.`;
-    const savedMsg = await prisma.chatMessage.create({
-      data: {
-        runId,
-        role: 'assistant',
-        content: errorReply,
-      },
-    });
+    const errorReply = `Error: Reconciliation run with ID "${runId}" does not exist in the database. Please provide a valid reconciliation run ID.`;
     return {
       answer: errorReply,
       toolCalls: [],
       runId,
-      messageId: savedMsg.id,
+      conversationId: activeConversationId,
+      messageId: '',
     };
   }
 
-  // Load previous chat history for conversation continuity
+  // Load previous chat history scoped strictly to this specific conversation
   const priorHistory = await prisma.chatMessage.findMany({
-    where: { runId },
+    where: { runId, conversationId: activeConversationId },
     orderBy: { createdAt: 'asc' },
-    take: 10,
+    take: 15,
   });
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -378,7 +378,7 @@ CRITICAL INSTRUCTIONS:
 1. ALWAYS use the provided tools (getRunSummary, getRecordDetails, listExceptions, listMatchesByPass, searchRunData) to look up facts before answering. NEVER invent, hallucinate, or assume record IDs, statuses, amounts, or reasons.
 2. Ground all answers strictly in the tool outputs and cite specific IDs explicitly: payment_id (e.g. pay_XXXX), bank_txn_id (e.g. TXNXXXX), and ledger_entry_id (e.g. LED-XXXX).
 3. If an unmatched exception is asked about, explain the recorded reasoning from the audit log and the suggested action clearly.
-4. If a query cannot be answered from the database records or tools, say so explicitly and explain what is missing.
+4. If a query cannot be answered from the database records or tools (e.g. external data like weather, or nonexistent IDs), say so explicitly and decline rather than hallucinating.
 5. Provide concise, professional, audit-ready summaries with formatted markdown tables or bullet points when helpful.`,
   });
 
@@ -442,10 +442,11 @@ CRITICAL INSTRUCTIONS:
 
   const finalAnswer = currentResponse.response.text() || 'Unable to generate response from tool data.';
 
-  // Persist user and assistant messages in database
+  // Persist user and assistant messages in database with activeConversationId
   await prisma.chatMessage.create({
     data: {
       runId,
+      conversationId: activeConversationId,
       role: 'user',
       content: userMessage,
     },
@@ -454,6 +455,7 @@ CRITICAL INSTRUCTIONS:
   const assistantMessage = await prisma.chatMessage.create({
     data: {
       runId,
+      conversationId: activeConversationId,
       role: 'assistant',
       content: finalAnswer,
       toolCalls: toolCallsLog.length > 0 ? (toolCallsLog as any) : undefined,
@@ -464,6 +466,7 @@ CRITICAL INSTRUCTIONS:
     answer: finalAnswer,
     toolCalls: toolCallsLog,
     runId,
+    conversationId: activeConversationId,
     messageId: assistantMessage.id,
   };
 }

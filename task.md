@@ -13,7 +13,8 @@
 - [x] Task 2.2: Live progress streaming via Server-Sent Events (`GET /api/reconcile/:runId/stream`) with per-record Pass 3 resolution events
 - [x] Task 2.3: Agentic Q&A endpoint (`POST /api/chat`, `POST /api/runs/:runId/chat`) with real Gemini function-calling tools, tool-call trace logging, and citation-grounded answers
 - [x] Task 2.4: Chat conversation history persistence in PostgreSQL via Prisma `ChatMessage` model and migration `20260831010000_add_chat_messages`
-- [x] Task 2.5: Automated headless smoke tests (`test-chat.ts` and `test-schema-intake.ts`) verifying tool calling, schema detection, and multi-file intake
+- [x] Task 2.5: Automated headless smoke tests (`test-chat.ts`, `test-schema-intake.ts`, `test-ambiguous-schema.ts`, `test-sse-stream.ts`) verifying tool calling, schema detection, and live streaming
+- [x] Task 2.6: Scoped conversation isolation via `conversationId` on `ChatMessage`, migration `20260831020000_add_conversation_id_to_chat_messages`, and verified multi-thread isolation (`test-chat-isolated-conversations.ts`)
 
 ## Phase 3: Interactive Frontend
 
