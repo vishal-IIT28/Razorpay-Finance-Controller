@@ -14,6 +14,7 @@ export type SchemaDetectionResult = {
   detectedVia: 'heuristic' | 'llm';
   sampleRowCount: number;
   rawHeaders: string[];
+  reasoning?: string;
 };
 
 export type IntakeValidationResult = {
@@ -214,6 +215,7 @@ export async function detectSchemaWithLlm(
       detectedVia: 'llm',
       sampleRowCount: sampleRows.length,
       rawHeaders,
+      reasoning: parsed.reasoning || `LLM classified as ${role} based on column structures and sample data.`,
     };
   } catch (error) {
     console.warn(`[Schema Detector] LLM fallback error for ${filename}, reverting to heuristic:`, error);

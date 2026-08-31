@@ -28,7 +28,7 @@ async function runChatSmokeTest() {
   const sampleException = await prisma.exceptionLog.findFirst({
     where: { runId: run.id, sourceSystem: 'Razorpay' },
   });
-  const targetPaymentId = sampleException ? sampleException.sourceId : 'pay_fOTHwxAeCB4mZ0';
+  const targetPaymentId = sampleException ? sampleException.sourceId : 'pay_BQtqNlhY0hUBzn';
 
   const testQueries = [
     {
@@ -47,12 +47,20 @@ async function runChatSmokeTest() {
       label: 'Query 4: Exception Queue Analysis by Source System',
       question: 'List the exceptions recorded for Bank and Ledger records. How many unmatched entries are there and what actions should finance ops take?',
     },
+    {
+      label: 'Query 5: Freeform Audit Search (searchRunData)',
+      question: 'Search across the audit logs for any records or notes mentioning "split bank credits" or ledger entry "LED-015088". Show the matching audit entries.',
+    },
+    {
+      label: 'Query 6: Unanswerable / Non-Existent Query (Declines Cleanly Without Hallucinating)',
+      question: 'What was the ambient weather temperature in Bangalore when payment pay_NONEXISTENT_99999 was processed?',
+    },
   ];
 
   for (let i = 0; i < testQueries.length; i++) {
     const { label, question } = testQueries[i]!;
     console.log(`================================================================================`);
-    console.log(`[${i + 1}/4] ${label}`);
+    console.log(`[${i + 1}/${testQueries.length}] ${label}`);
     console.log(`User Question: "${question}"\n`);
 
     const startTime = performance.now();
