@@ -53,7 +53,10 @@ type GroundTruth = {
   anomaly_type: string;
 };
 
-function generateData() {
+export function generateData(customSeed?: number, customOutputDir?: string) {
+  const seed = customSeed ?? (process.env.GENERATOR_SEED ? Number(process.env.GENERATOR_SEED) : 20260905);
+  faker.seed(seed);
+
   const razorpayRecords: RazorpayRecord[] = [];
   const bankRecords: BankRecord[] = [];
   const ledgerRecords: LedgerRecord[] = [];
@@ -76,8 +79,8 @@ function generateData() {
     const date = faker.date.recent({ days: 30 });
     const dateString = dateOnly(date);
     
-    // Determine the type of record to simulate real-world anomalies
-    const rand = Math.random();
+    // Determine the type of record to simulate real-world anomalies (seeded float)
+    const rand = faker.number.float({ min: 0, max: 1 });
     
     // 1. Exact Match (40%)
     if (rand < 0.40) {
@@ -251,8 +254,11 @@ function generateData() {
     }
   }
 
-  // Ensure data directory exists
-  const dataDir = path.join(__dirname, '../../../data');
+  // Determine output directory
+  const dataDir = customOutputDir
+    ? path.resolve(process.cwd(), customOutputDir)
+    : path.join(__dirname, '../../../data');
+
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -265,7 +271,32 @@ function generateData() {
   // Write ground truth mapping
   fs.writeFileSync(path.join(dataDir, 'ground_truth.json'), JSON.stringify(groundTruth, null, 2));
 
-  console.log('✅ Generated synthetic financial records and ground truth mapping.');
+  console.log(`✅ Generated synthetic financial records and ground truth mapping in ${dataDir} (seed: ${seed}).`);
 }
 
-generateData();
+// CLI Execution handler
+if (require.main === module || process.argv[1]?.includes('generator.ts')) {
+  const args = process.argv.slice(2);
+  let parsedOutputDir: string | undefined;
+  let parsedSeed: number | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg) continue;
+    if (arg === '--output-dir' || arg === '--out') {
+      parsedOutputDir = args[++i];
+    } else if (arg.startsWith('--output-dir=')) {
+      parsedOutputDir = arg.split('=')[1];
+    } else if (arg.startsWith('--out=')) {
+      parsedOutputDir = arg.split('=')[1];
+    } else if (arg === '--seed') {
+      parsedSeed = Number(args[++i]);
+    } else if (arg.startsWith('--seed=')) {
+      parsedSeed = Number(arg.split('=')[1]);
+    } else if (!arg.startsWith('-') && !parsedOutputDir) {
+      parsedOutputDir = arg;
+    }
+  }
+
+  generateData(parsedSeed, parsedOutputDir);
+}

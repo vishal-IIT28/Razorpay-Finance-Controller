@@ -54,7 +54,7 @@ export async function runLlmPass(
   const model = genAI.getGenerativeModel({
     model: MODEL_NAME,
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0, // Set to 0 for strict grading reproducibility across evaluation runs
       responseMimeType: 'application/json',
     },
   });

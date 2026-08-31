@@ -1,0 +1,1040 @@
+{
+  "pay_hwqtHpgt3jzrh9": {
+    "bank_txn_ids": [
+      "TXN7816815448"
+    ],
+    "ledger_entry_id": "LED-370966",
+    "anomaly_type": "exact"
+  },
+  "pay_0ktq1H0ibFQayy": {
+    "bank_txn_ids": [
+      "TXN1980362873",
+      "TXN6014124173"
+    ],
+    "ledger_entry_id": "LED-035799",
+    "anomaly_type": "split"
+  },
+  "pay_4rMqdcP5eUFW20": {
+    "bank_txn_ids": [
+      "TXN9767609688"
+    ],
+    "ledger_entry_id": "LED-515581",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_ANRYINRTCbHIW3": {
+    "bank_txn_ids": [
+      "TXN3055482963"
+    ],
+    "ledger_entry_id": "LED-185666",
+    "anomaly_type": "date_drift"
+  },
+  "pay_qUZo8a3Rd1MipL": {
+    "bank_txn_ids": [
+      "TXN4783368631"
+    ],
+    "ledger_entry_id": "LED-199288",
+    "anomaly_type": "date_drift"
+  },
+  "pay_8txjSLkGoOrbjQ": {
+    "bank_txn_ids": [
+      "TXN6305193033"
+    ],
+    "ledger_entry_id": "LED-163845",
+    "anomaly_type": "exact"
+  },
+  "pay_BQtqNlhY0hUBzn": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-015088",
+    "anomaly_type": "missing"
+  },
+  "pay_heR18AEvAnnV8u": {
+    "bank_txn_ids": [
+      "TXN1985831252"
+    ],
+    "ledger_entry_id": "LED-969525",
+    "anomaly_type": "exact"
+  },
+  "pay_Oxnk8fIbkBdlkg": {
+    "bank_txn_ids": [
+      "TXN4900762688"
+    ],
+    "ledger_entry_id": "LED-326984",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_aUKNeihaO35WlD": {
+    "bank_txn_ids": [
+      "TXN2929553766"
+    ],
+    "ledger_entry_id": "LED-677654",
+    "anomaly_type": "date_drift"
+  },
+  "pay_KPdYajG5BEOQMv": {
+    "bank_txn_ids": [
+      "TXN3381227386"
+    ],
+    "ledger_entry_id": "LED-678713",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_dsfm5Mhes9U7pg": {
+    "bank_txn_ids": [
+      "TXN4535520885"
+    ],
+    "ledger_entry_id": "LED-952690",
+    "anomaly_type": "exact"
+  },
+  "pay_SvdngaFypMr2kK": {
+    "bank_txn_ids": [
+      "TXN8321646358"
+    ],
+    "ledger_entry_id": "LED-627117",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_qwiknrUbOsdXF3": {
+    "bank_txn_ids": [
+      "TXN4697199388",
+      "TXN7286068916"
+    ],
+    "ledger_entry_id": "LED-010793",
+    "anomaly_type": "split"
+  },
+  "pay_cIfnSAfb9xWam2": {
+    "bank_txn_ids": [
+      "TXN2394306340"
+    ],
+    "ledger_entry_id": "LED-953443",
+    "anomaly_type": "exact"
+  },
+  "pay_5aReTHKvRjXt96": {
+    "bank_txn_ids": [
+      "TXN2103363230"
+    ],
+    "ledger_entry_id": "LED-006243",
+    "anomaly_type": "exact"
+  },
+  "pay_qffjJhuG7sKd4R": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-874165",
+    "anomaly_type": "missing"
+  },
+  "pay_jaTi4qTIUHv4t8": {
+    "bank_txn_ids": [
+      "TXN3642608572"
+    ],
+    "ledger_entry_id": "LED-427295",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_LKKWSy4p5x1e0V": {
+    "bank_txn_ids": [
+      "TXN4560326179"
+    ],
+    "ledger_entry_id": "LED-985842",
+    "anomaly_type": "date_drift"
+  },
+  "pay_QH841uKUy5n9W5": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-971634",
+    "anomaly_type": "missing"
+  },
+  "pay_w5LmzkCz96c6VS": {
+    "bank_txn_ids": [
+      "TXN2293456235"
+    ],
+    "ledger_entry_id": "LED-883086",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_2TYxnoCqugzdpR": {
+    "bank_txn_ids": [
+      "TXN9219476878"
+    ],
+    "ledger_entry_id": "LED-141607",
+    "anomaly_type": "exact"
+  },
+  "pay_BEqo01UGZU1EUR": {
+    "bank_txn_ids": [
+      "TXN3346994837"
+    ],
+    "ledger_entry_id": "LED-809610",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_CUWZxLd4fzqj9a": {
+    "bank_txn_ids": [
+      "TXN7752791941"
+    ],
+    "ledger_entry_id": "LED-169798",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_Z0rf0g2TIcrxo5": {
+    "bank_txn_ids": [
+      "TXN4093686712"
+    ],
+    "ledger_entry_id": "LED-377893",
+    "anomaly_type": "exact"
+  },
+  "pay_mcfgq0JEKOe9n1": {
+    "bank_txn_ids": [
+      "TXN6893890054"
+    ],
+    "ledger_entry_id": "LED-333683",
+    "anomaly_type": "date_drift"
+  },
+  "pay_LwjVc15oKjoFE5": {
+    "bank_txn_ids": [
+      "TXN8053833876"
+    ],
+    "ledger_entry_id": "LED-800818",
+    "anomaly_type": "exact"
+  },
+  "pay_MhKQ4shjWx1mLj": {
+    "bank_txn_ids": [
+      "TXN3867238742",
+      "TXN4378540057"
+    ],
+    "ledger_entry_id": "LED-222453",
+    "anomaly_type": "split"
+  },
+  "pay_Hu1EaVdrmtQmOO": {
+    "bank_txn_ids": [
+      "TXN4260209742"
+    ],
+    "ledger_entry_id": "LED-023163",
+    "anomaly_type": "date_drift"
+  },
+  "pay_gcRAG2gY29l3nV": {
+    "bank_txn_ids": [
+      "TXN2644330835"
+    ],
+    "ledger_entry_id": "LED-714209",
+    "anomaly_type": "date_drift"
+  },
+  "pay_wp7FX9db21UBxo": {
+    "bank_txn_ids": [
+      "TXN5632145841"
+    ],
+    "ledger_entry_id": "LED-921409",
+    "anomaly_type": "exact"
+  },
+  "pay_VG63M2GuBqTrxf": {
+    "bank_txn_ids": [
+      "TXN4388723433"
+    ],
+    "ledger_entry_id": "LED-055981",
+    "anomaly_type": "exact"
+  },
+  "pay_ajjTScTJdus3XE": {
+    "bank_txn_ids": [
+      "TXN1256369953"
+    ],
+    "ledger_entry_id": "LED-307030",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_G1zb7LdjFXaIRZ": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-103279",
+    "anomaly_type": "missing"
+  },
+  "pay_Q7tqissn1AhwyO": {
+    "bank_txn_ids": [
+      "TXN5318783923"
+    ],
+    "ledger_entry_id": "LED-651315",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_ZRrZOyXxP69p3Y": {
+    "bank_txn_ids": [
+      "TXN3339169525"
+    ],
+    "ledger_entry_id": "LED-706500",
+    "anomaly_type": "date_drift"
+  },
+  "pay_g2UGHHphdjP1fA": {
+    "bank_txn_ids": [
+      "TXN9267970081"
+    ],
+    "ledger_entry_id": "LED-742516",
+    "anomaly_type": "exact"
+  },
+  "pay_BPbyUli385LTYR": {
+    "bank_txn_ids": [
+      "TXN5928936594"
+    ],
+    "ledger_entry_id": "LED-722671",
+    "anomaly_type": "exact"
+  },
+  "pay_t0AgR2vG2ibsuW": {
+    "bank_txn_ids": [
+      "TXN7916334501"
+    ],
+    "ledger_entry_id": "LED-914314",
+    "anomaly_type": "exact"
+  },
+  "pay_VtLI656B72uUwC": {
+    "bank_txn_ids": [
+      "TXN4890646454"
+    ],
+    "ledger_entry_id": "LED-118744",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_tm32TfPUxcgZMe": {
+    "bank_txn_ids": [
+      "TXN1762105175"
+    ],
+    "ledger_entry_id": "LED-634906",
+    "anomaly_type": "exact"
+  },
+  "pay_JKq1kpyRKFyjgv": {
+    "bank_txn_ids": [
+      "TXN7461731377"
+    ],
+    "ledger_entry_id": "LED-304328",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_qugolRibGnQWWp": {
+    "bank_txn_ids": [
+      "TXN2890303635"
+    ],
+    "ledger_entry_id": "LED-840111",
+    "anomaly_type": "date_drift"
+  },
+  "pay_qKueZ5RN4vLLJ9": {
+    "bank_txn_ids": [
+      "TXN9924815765"
+    ],
+    "ledger_entry_id": "LED-875403",
+    "anomaly_type": "exact"
+  },
+  "pay_5B7RUJWv4wfwt1": {
+    "bank_txn_ids": [
+      "TXN0676936348"
+    ],
+    "ledger_entry_id": "LED-209011",
+    "anomaly_type": "exact"
+  },
+  "pay_VvlJRsqCd7Nb9I": {
+    "bank_txn_ids": [
+      "TXN8109809037"
+    ],
+    "ledger_entry_id": "LED-013754",
+    "anomaly_type": "exact"
+  },
+  "pay_06xdD8Qnsanhvz": {
+    "bank_txn_ids": [
+      "TXN1734526595"
+    ],
+    "ledger_entry_id": "LED-234851",
+    "anomaly_type": "exact"
+  },
+  "pay_fstlunQxWHtEjD": {
+    "bank_txn_ids": [
+      "TXN6408841214"
+    ],
+    "ledger_entry_id": "LED-511712",
+    "anomaly_type": "exact"
+  },
+  "pay_ZRl4kvED3KgDcx": {
+    "bank_txn_ids": [
+      "TXN6990780782"
+    ],
+    "ledger_entry_id": "LED-964945",
+    "anomaly_type": "exact"
+  },
+  "pay_jF4phGHCQoWZEU": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-778004",
+    "anomaly_type": "missing"
+  },
+  "pay_qQ0C0s5Bqsftb4": {
+    "bank_txn_ids": [
+      "TXN9255107460"
+    ],
+    "ledger_entry_id": "LED-220548",
+    "anomaly_type": "exact"
+  },
+  "pay_m3i5dZayhAuSAP": {
+    "bank_txn_ids": [
+      "TXN2422482493",
+      "TXN5650783796"
+    ],
+    "ledger_entry_id": "LED-359117",
+    "anomaly_type": "split"
+  },
+  "pay_Y6JOFik9oohgjK": {
+    "bank_txn_ids": [
+      "TXN1285788505"
+    ],
+    "ledger_entry_id": "LED-932444",
+    "anomaly_type": "exact"
+  },
+  "pay_7E86MnxK2sZL7G": {
+    "bank_txn_ids": [
+      "TXN0912246814"
+    ],
+    "ledger_entry_id": "LED-345039",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_xQxOWiA2Nmg7XY": {
+    "bank_txn_ids": [
+      "TXN9851755457"
+    ],
+    "ledger_entry_id": "LED-008224",
+    "anomaly_type": "date_drift"
+  },
+  "pay_JQQK332EH95smY": {
+    "bank_txn_ids": [
+      "TXN9066363524"
+    ],
+    "ledger_entry_id": "LED-316166",
+    "anomaly_type": "date_drift"
+  },
+  "pay_mturSm6S5XW3Dj": {
+    "bank_txn_ids": [
+      "TXN8604118161"
+    ],
+    "ledger_entry_id": "LED-084296",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_lg1xHidT7mQqfc": {
+    "bank_txn_ids": [
+      "TXN2511907512"
+    ],
+    "ledger_entry_id": "LED-897833",
+    "anomaly_type": "exact"
+  },
+  "pay_jwa5JQmif9Rmk3": {
+    "bank_txn_ids": [
+      "TXN0807841567"
+    ],
+    "ledger_entry_id": "LED-047202",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_we7Q2FRMapjTTG": {
+    "bank_txn_ids": [
+      "TXN4741977024"
+    ],
+    "ledger_entry_id": "LED-457642",
+    "anomaly_type": "exact"
+  },
+  "pay_hd5EA4mbg9CZW7": {
+    "bank_txn_ids": [
+      "TXN6918566990"
+    ],
+    "ledger_entry_id": "LED-264994",
+    "anomaly_type": "exact"
+  },
+  "pay_ZFAoIGVslcSBAz": {
+    "bank_txn_ids": [
+      "TXN2695131715"
+    ],
+    "ledger_entry_id": "LED-993132",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_b7Ky2XaGRmeESR": {
+    "bank_txn_ids": [
+      "TXN2934313388"
+    ],
+    "ledger_entry_id": "LED-343518",
+    "anomaly_type": "exact"
+  },
+  "pay_Yy1NPfPxOJ8mLN": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-604885",
+    "anomaly_type": "missing"
+  },
+  "pay_8zUGMo93EvR1lE": {
+    "bank_txn_ids": [
+      "TXN4410612215"
+    ],
+    "ledger_entry_id": "LED-861170",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_V8FQBEmm4Zw1Na": {
+    "bank_txn_ids": [
+      "TXN3149184315"
+    ],
+    "ledger_entry_id": "LED-127185",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_YbOWONlYoEqGuP": {
+    "bank_txn_ids": [
+      "TXN9115434257"
+    ],
+    "ledger_entry_id": "LED-452348",
+    "anomaly_type": "exact"
+  },
+  "pay_thNjVejGsH06bJ": {
+    "bank_txn_ids": [
+      "TXN8666837646",
+      "TXN8198792246"
+    ],
+    "ledger_entry_id": "LED-902227",
+    "anomaly_type": "split"
+  },
+  "pay_CIE2pErB131IQB": {
+    "bank_txn_ids": [
+      "TXN6393393133"
+    ],
+    "ledger_entry_id": "LED-271175",
+    "anomaly_type": "exact"
+  },
+  "pay_Jm7R6CvZOIuwhw": {
+    "bank_txn_ids": [
+      "TXN9561307068",
+      "TXN4189455715"
+    ],
+    "ledger_entry_id": "LED-452096",
+    "anomaly_type": "split"
+  },
+  "pay_8mrcf1kW057Lcd": {
+    "bank_txn_ids": [
+      "TXN7392214006"
+    ],
+    "ledger_entry_id": "LED-139339",
+    "anomaly_type": "exact"
+  },
+  "pay_6DfcqRuU3o0NA9": {
+    "bank_txn_ids": [
+      "TXN8949993248"
+    ],
+    "ledger_entry_id": "LED-714483",
+    "anomaly_type": "exact"
+  },
+  "pay_ljVSHOdRekkH2P": {
+    "bank_txn_ids": [
+      "TXN7411546556"
+    ],
+    "ledger_entry_id": "LED-057868",
+    "anomaly_type": "exact"
+  },
+  "pay_JMUT6vf8QAhPk5": {
+    "bank_txn_ids": [
+      "TXN3778818297",
+      "TXN8871254450"
+    ],
+    "ledger_entry_id": "LED-989008",
+    "anomaly_type": "split"
+  },
+  "pay_ll6xwM7zdAOat6": {
+    "bank_txn_ids": [
+      "TXN1918600853"
+    ],
+    "ledger_entry_id": "LED-268726",
+    "anomaly_type": "date_drift"
+  },
+  "pay_i5KWOoHsOVGrVd": {
+    "bank_txn_ids": [
+      "TXN6279188634",
+      "TXN2398951712"
+    ],
+    "ledger_entry_id": "LED-835997",
+    "anomaly_type": "split"
+  },
+  "pay_zsXc7H5De5whCs": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-163563",
+    "anomaly_type": "missing"
+  },
+  "pay_ZWLwmoykgDSlib": {
+    "bank_txn_ids": [
+      "TXN9937617063"
+    ],
+    "ledger_entry_id": "LED-623487",
+    "anomaly_type": "exact"
+  },
+  "pay_th8b2NRJSpjYIC": {
+    "bank_txn_ids": [
+      "TXN4902645769"
+    ],
+    "ledger_entry_id": "LED-526353",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_Zx4H4qFyw11T3R": {
+    "bank_txn_ids": [
+      "TXN0899832731"
+    ],
+    "ledger_entry_id": "LED-084791",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_MUZjpxDV4uZ4KC": {
+    "bank_txn_ids": [
+      "TXN5634184123"
+    ],
+    "ledger_entry_id": "LED-939417",
+    "anomaly_type": "date_drift"
+  },
+  "pay_AykyZEGLQD47OP": {
+    "bank_txn_ids": [
+      "TXN1331102373"
+    ],
+    "ledger_entry_id": "LED-471339",
+    "anomaly_type": "date_drift"
+  },
+  "pay_ABW8HsVyt1Ztyz": {
+    "bank_txn_ids": [
+      "TXN7173283886"
+    ],
+    "ledger_entry_id": "LED-757706",
+    "anomaly_type": "exact"
+  },
+  "pay_biFpy80usyuXP0": {
+    "bank_txn_ids": [
+      "TXN8821277993"
+    ],
+    "ledger_entry_id": "LED-453505",
+    "anomaly_type": "exact"
+  },
+  "pay_0QJ77mlymJ0CQg": {
+    "bank_txn_ids": [
+      "TXN9574853569"
+    ],
+    "ledger_entry_id": "LED-889546",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_CZZR4lg2rwtXoY": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-871225",
+    "anomaly_type": "missing"
+  },
+  "pay_Xs5fhK0x0ttJel": {
+    "bank_txn_ids": [
+      "TXN2527122779"
+    ],
+    "ledger_entry_id": "LED-383638",
+    "anomaly_type": "exact"
+  },
+  "pay_b7vd0kp5hiuy8Y": {
+    "bank_txn_ids": [
+      "TXN8252403995"
+    ],
+    "ledger_entry_id": "LED-861341",
+    "anomaly_type": "exact"
+  },
+  "pay_G8ApHkb2IxaK83": {
+    "bank_txn_ids": [
+      "TXN6951643156"
+    ],
+    "ledger_entry_id": "LED-675403",
+    "anomaly_type": "exact"
+  },
+  "pay_jwa9czMhEtXOaY": {
+    "bank_txn_ids": [
+      "TXN9993461201"
+    ],
+    "ledger_entry_id": "LED-742619",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_IzV33tveOJqvXU": {
+    "bank_txn_ids": [
+      "TXN4908633095"
+    ],
+    "ledger_entry_id": "LED-743352",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_HINo7AIOVRj6P2": {
+    "bank_txn_ids": [
+      "TXN0406998094"
+    ],
+    "ledger_entry_id": "LED-212827",
+    "anomaly_type": "exact"
+  },
+  "pay_TNwPduYZqtFpep": {
+    "bank_txn_ids": [
+      "TXN5401821803"
+    ],
+    "ledger_entry_id": "LED-881478",
+    "anomaly_type": "exact"
+  },
+  "pay_bZli3tJOwjGJw2": {
+    "bank_txn_ids": [
+      "TXN8347193912"
+    ],
+    "ledger_entry_id": "LED-881205",
+    "anomaly_type": "exact"
+  },
+  "pay_In8O0vpUsJfdbN": {
+    "bank_txn_ids": [
+      "TXN9532118129"
+    ],
+    "ledger_entry_id": "LED-748918",
+    "anomaly_type": "date_drift"
+  },
+  "pay_zyz0lW5clIwszw": {
+    "bank_txn_ids": [
+      "TXN7660688745"
+    ],
+    "ledger_entry_id": "LED-322830",
+    "anomaly_type": "exact"
+  },
+  "pay_gdi43Zk5L1fhSt": {
+    "bank_txn_ids": [
+      "TXN5326390733"
+    ],
+    "ledger_entry_id": "LED-359727",
+    "anomaly_type": "exact"
+  },
+  "pay_TsYvqxMtgTgFeF": {
+    "bank_txn_ids": [
+      "TXN3197798105"
+    ],
+    "ledger_entry_id": "LED-818405",
+    "anomaly_type": "exact"
+  },
+  "pay_PUOmfSKpc0lJ7u": {
+    "bank_txn_ids": [
+      "TXN4233807423"
+    ],
+    "ledger_entry_id": "LED-110188",
+    "anomaly_type": "exact"
+  },
+  "pay_6k5LXTtn3DcSPt": {
+    "bank_txn_ids": [
+      "TXN8515327070"
+    ],
+    "ledger_entry_id": "LED-826311",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_dtne4J0T9rXEJq": {
+    "bank_txn_ids": [
+      "TXN3710912055"
+    ],
+    "ledger_entry_id": "LED-025057",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_cteZGP642NuYXH": {
+    "bank_txn_ids": [
+      "TXN4546889073"
+    ],
+    "ledger_entry_id": "LED-287967",
+    "anomaly_type": "exact"
+  },
+  "pay_u4fFVbMkX62O5p": {
+    "bank_txn_ids": [
+      "TXN3191338795"
+    ],
+    "ledger_entry_id": "LED-479797",
+    "anomaly_type": "exact"
+  },
+  "pay_dkdNet9dh7Y4CC": {
+    "bank_txn_ids": [
+      "TXN1946413532"
+    ],
+    "ledger_entry_id": "LED-120974",
+    "anomaly_type": "exact"
+  },
+  "pay_kEqKR6NXTyRmx3": {
+    "bank_txn_ids": [
+      "TXN5938299230"
+    ],
+    "ledger_entry_id": "LED-877388",
+    "anomaly_type": "exact"
+  },
+  "pay_uXTo6Wg6hHHtrN": {
+    "bank_txn_ids": [
+      "TXN5072881979"
+    ],
+    "ledger_entry_id": "LED-704911",
+    "anomaly_type": "date_drift"
+  },
+  "pay_4D3U2FH2vZEKaw": {
+    "bank_txn_ids": [
+      "TXN7473606643"
+    ],
+    "ledger_entry_id": "LED-856808",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_zJc9qAk2BpWYdn": {
+    "bank_txn_ids": [
+      "TXN2356592491"
+    ],
+    "ledger_entry_id": "LED-023920",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_guqau4BQAYBERr": {
+    "bank_txn_ids": [
+      "TXN9927411577"
+    ],
+    "ledger_entry_id": "LED-930875",
+    "anomaly_type": "date_drift"
+  },
+  "pay_gQdLJM5lzuWWMw": {
+    "bank_txn_ids": [
+      "TXN5184182330"
+    ],
+    "ledger_entry_id": "LED-271804",
+    "anomaly_type": "exact"
+  },
+  "pay_H8hcrvJSY6zltr": {
+    "bank_txn_ids": [
+      "TXN6097676557"
+    ],
+    "ledger_entry_id": "LED-664027",
+    "anomaly_type": "date_drift"
+  },
+  "pay_zApZn7t6R0IHFF": {
+    "bank_txn_ids": [
+      "TXN3070431291"
+    ],
+    "ledger_entry_id": "LED-057877",
+    "anomaly_type": "exact"
+  },
+  "pay_h6xpPpZrkeUntl": {
+    "bank_txn_ids": [
+      "TXN7045135899"
+    ],
+    "ledger_entry_id": "LED-721779",
+    "anomaly_type": "exact"
+  },
+  "pay_CpKaYu18J22add": {
+    "bank_txn_ids": [
+      "TXN0242153911"
+    ],
+    "ledger_entry_id": "LED-364227",
+    "anomaly_type": "exact"
+  },
+  "pay_4EpK8kDY9EHfdS": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-204773",
+    "anomaly_type": "missing"
+  },
+  "pay_9N1yhpkkTIagWj": {
+    "bank_txn_ids": [
+      "TXN9120272747"
+    ],
+    "ledger_entry_id": "LED-515268",
+    "anomaly_type": "exact"
+  },
+  "pay_BwbsAE1A7YSTe9": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-586487",
+    "anomaly_type": "missing"
+  },
+  "pay_IKrIChNoRx5vEA": {
+    "bank_txn_ids": [
+      "TXN5163047981"
+    ],
+    "ledger_entry_id": "LED-982795",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_FDmVXBEbcBhWHu": {
+    "bank_txn_ids": [
+      "TXN1759432011"
+    ],
+    "ledger_entry_id": "LED-253369",
+    "anomaly_type": "exact"
+  },
+  "pay_iFsQ9EH0vocdUM": {
+    "bank_txn_ids": [
+      "TXN9520817946"
+    ],
+    "ledger_entry_id": "LED-059832",
+    "anomaly_type": "exact"
+  },
+  "pay_NMZAXTHhfxHBRj": {
+    "bank_txn_ids": [
+      "TXN1525384562",
+      "TXN0339847108"
+    ],
+    "ledger_entry_id": "LED-908157",
+    "anomaly_type": "split"
+  },
+  "pay_pSDxkfqsUlV9tv": {
+    "bank_txn_ids": [
+      "TXN2181616977"
+    ],
+    "ledger_entry_id": "LED-973302",
+    "anomaly_type": "exact"
+  },
+  "pay_L4xJUWOtybX3pO": {
+    "bank_txn_ids": [
+      "TXN8762269317"
+    ],
+    "ledger_entry_id": "LED-652957",
+    "anomaly_type": "exact"
+  },
+  "pay_AG2Cq8sUwmDxO8": {
+    "bank_txn_ids": [
+      "TXN0495712550"
+    ],
+    "ledger_entry_id": "LED-704282",
+    "anomaly_type": "exact"
+  },
+  "pay_k5qOjkyNP28jm9": {
+    "bank_txn_ids": [
+      "TXN0464303900"
+    ],
+    "ledger_entry_id": "LED-968636",
+    "anomaly_type": "exact"
+  },
+  "pay_ERujRw4Bh824oq": {
+    "bank_txn_ids": [
+      "TXN7726051793"
+    ],
+    "ledger_entry_id": "LED-824595",
+    "anomaly_type": "exact"
+  },
+  "pay_IGYED2dM4Z8gnH": {
+    "bank_txn_ids": [
+      "TXN1375635011"
+    ],
+    "ledger_entry_id": "LED-153700",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_CfpVE9ruZJKB1Y": {
+    "bank_txn_ids": [
+      "TXN4872341345"
+    ],
+    "ledger_entry_id": "LED-151137",
+    "anomaly_type": "exact"
+  },
+  "pay_FtuCX6MnC8T75A": {
+    "bank_txn_ids": [
+      "TXN2457737744"
+    ],
+    "ledger_entry_id": "LED-200719",
+    "anomaly_type": "exact"
+  },
+  "pay_Btol6cPT1gHgPd": {
+    "bank_txn_ids": [
+      "TXN0287896054"
+    ],
+    "ledger_entry_id": "LED-294060",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_wgZq1d4GOTZivK": {
+    "bank_txn_ids": [
+      "TXN9708753213",
+      "TXN3342204045"
+    ],
+    "ledger_entry_id": "LED-352468",
+    "anomaly_type": "split"
+  },
+  "pay_rotRh5016e33GH": {
+    "bank_txn_ids": [
+      "TXN8660466350"
+    ],
+    "ledger_entry_id": "LED-564262",
+    "anomaly_type": "exact"
+  },
+  "pay_N6oPbPt42CxmBJ": {
+    "bank_txn_ids": [
+      "TXN4545914249"
+    ],
+    "ledger_entry_id": "LED-878584",
+    "anomaly_type": "date_drift"
+  },
+  "pay_6ZeMdUTetoOTwD": {
+    "bank_txn_ids": [
+      "TXN0152574255"
+    ],
+    "ledger_entry_id": "LED-225751",
+    "anomaly_type": "exact"
+  },
+  "pay_8wzaeglj0EOkCC": {
+    "bank_txn_ids": [
+      "TXN4091866509"
+    ],
+    "ledger_entry_id": "LED-139594",
+    "anomaly_type": "exact"
+  },
+  "pay_qS7Bm7wLIcsZG9": {
+    "bank_txn_ids": [
+      "TXN9919527335"
+    ],
+    "ledger_entry_id": "LED-718579",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_HpT0sF3rKTwva2": {
+    "bank_txn_ids": [
+      "TXN2390556247"
+    ],
+    "ledger_entry_id": "LED-162027",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_TewFAJz1FIAVpJ": {
+    "bank_txn_ids": [
+      "TXN0611303631"
+    ],
+    "ledger_entry_id": "LED-155454",
+    "anomaly_type": "date_drift"
+  },
+  "pay_EDaFA9qqeoKQq8": {
+    "bank_txn_ids": [
+      "TXN1220311819"
+    ],
+    "ledger_entry_id": "LED-946644",
+    "anomaly_type": "date_drift"
+  },
+  "pay_URXnDthaBgHeLe": {
+    "bank_txn_ids": [
+      "TXN7326976419"
+    ],
+    "ledger_entry_id": "LED-411696",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_IxrjTq0fL1Ilme": {
+    "bank_txn_ids": [
+      "TXN1028234767"
+    ],
+    "ledger_entry_id": "LED-246746",
+    "anomaly_type": "date_drift"
+  },
+  "pay_4izoq0pm1sufPw": {
+    "bank_txn_ids": [],
+    "ledger_entry_id": "LED-753088",
+    "anomaly_type": "missing"
+  },
+  "pay_GFmXYYT2Mxgu7B": {
+    "bank_txn_ids": [
+      "TXN1986582582"
+    ],
+    "ledger_entry_id": "LED-839149",
+    "anomaly_type": "date_drift"
+  },
+  "pay_2bTznw8R6xJ5y6": {
+    "bank_txn_ids": [
+      "TXN9686126289"
+    ],
+    "ledger_entry_id": "LED-168016",
+    "anomaly_type": "narration_variance"
+  },
+  "pay_jfTS8VWJMWcyrW": {
+    "bank_txn_ids": [
+      "TXN9905169362"
+    ],
+    "ledger_entry_id": "LED-150397",
+    "anomaly_type": "exact"
+  },
+  "pay_HaG9Yt9dJZmks4": {
+    "bank_txn_ids": [
+      "TXN1643478474"
+    ],
+    "ledger_entry_id": "LED-082679",
+    "anomaly_type": "amount_mismatch"
+  },
+  "pay_SgeQWeFvoa8xOv": {
+    "bank_txn_ids": [
+      "TXN8130146252"
+    ],
+    "ledger_entry_id": "LED-971776",
+    "anomaly_type": "exact"
+  },
+  "pay_KbQUaF4u8D2ZhE": {
+    "bank_txn_ids": [
+      "TXN2229181318"
+    ],
+    "ledger_entry_id": "LED-184988",
+    "anomaly_type": "exact"
+  },
+  "pay_H9S1QOEn5h3hsh": {
+    "bank_txn_ids": [
+      "TXN0076188773"
+    ],
+    "ledger_entry_id": "LED-262258",
+    "anomaly_type": "exact"
+  },
+  "pay_dHGasxmdf72N7D": {
+    "bank_txn_ids": [
+      "TXN3685477069"
+    ],
+    "ledger_entry_id": "LED-606368",
+    "anomaly_type": "date_drift"
+  }
+}

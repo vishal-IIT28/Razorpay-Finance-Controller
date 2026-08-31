@@ -21,7 +21,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'FinReconcile API is running' });
+  res.json({ status: 'ok', message: 'FinReconcile AI API is running' });
 });
 
 app.post(
@@ -47,21 +47,34 @@ app.post(
 
       uploadedFiles.push(razorpayFile, bankFile, ledgerFile);
 
+      const totalStart = performance.now();
+
       const razorpayData = parseCsvFile(razorpayFile.path, normalizeRazorpayRecord);
       const bankData = parseCsvFile(bankFile.path, normalizeBankRecord);
       const ledgerData = parseCsvFile(ledgerFile.path, normalizeLedgerRecord);
 
+      const p1Start = performance.now();
       const pass1Result = runDeterministicPass(razorpayData, bankData, ledgerData);
+      const pass1_ms = Math.round(performance.now() - p1Start);
+
+      const p2Start = performance.now();
       const pass2Result = runFuzzyPass(pass1Result.unmatched.razorpay, pass1Result.unmatched.bank, pass1Result.unmatched.ledger);
+      const pass2_ms = Math.round(performance.now() - p2Start);
+
+      const p3Start = performance.now();
       const pass3Result = await runLlmPass(
         pass2Result.unmatched.razorpay,
         pass2Result.unmatched.bank,
         pass2Result.unmatched.ledger
       );
+      const pass3_ms = Math.round(performance.now() - p3Start);
+
+      const total_ms = Math.round(performance.now() - totalStart);
+      const records_per_second = total_ms > 0 ? Number(((razorpayData.length / (total_ms / 1000))).toFixed(2)) : 0;
 
       const allMatches = [...pass1Result.matches, ...pass2Result.matches, ...pass3Result.matches];
       const exceptionLogs = buildExceptionLogs(pass3Result.unmatched, pass3Result.decisions);
-      const run = await persistRun(razorpayData.length, allMatches, exceptionLogs);
+      const run = await persistRun(razorpayData.length, allMatches, exceptionLogs, total_ms);
       const matchRate = razorpayData.length === 0 ? 0 : Number(((allMatches.length / razorpayData.length) * 100).toFixed(1));
 
       res.json({
@@ -72,6 +85,13 @@ app.post(
           total_matched: allMatches.length,
           match_rate_pct: matchRate,
           exceptions: exceptionLogs.length,
+        },
+        timing: {
+          total_ms,
+          pass1_ms,
+          pass2_ms,
+          pass3_ms,
+          records_per_second,
         },
         pass1: {
           matched: pass1Result.matches.length,
@@ -100,13 +120,19 @@ app.post(
   }
 );
 
-async function persistRun(totalRecords: number, matches: MatchResult[], exceptions: ExceptionPayload[]) {
+async function persistRun(
+  totalRecords: number,
+  matches: MatchResult[],
+  exceptions: ExceptionPayload[],
+  durationMs?: number
+) {
   return prisma.reconciliationRun.create({
     data: {
       status: 'completed',
       totalRecords,
       matchedRecords: matches.length,
       exceptions: exceptions.length,
+      durationMs: durationMs ?? null,
       matchResults: {
         create: matches.map((match) => ({
           paymentId: match.payment_id,

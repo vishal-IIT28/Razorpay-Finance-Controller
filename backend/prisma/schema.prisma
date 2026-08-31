@@ -14,6 +14,7 @@ model ReconciliationRun {
   totalRecords    Int      @default(0)
   matchedRecords  Int      @default(0)
   exceptions      Int      @default(0)
+  durationMs      Int?
   precision       Float?
   recall          Float?
   matchResults    MatchResult[]

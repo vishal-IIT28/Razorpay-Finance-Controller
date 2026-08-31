@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import Papa from 'papaparse';
 
 const prisma = new PrismaClient();
 
@@ -10,26 +11,34 @@ type GroundTruth = {
   anomaly_type: string;
 };
 
-async function evaluateRun(runId?: string) {
+async function evaluateRun(runId?: string, isLatest?: boolean, dataset: 'default' | 'holdout' = 'default') {
   try {
     // 1. Fetch the run
     let run;
     if (runId) {
       run = await prisma.reconciliationRun.findUnique({ where: { id: runId } });
-    } else {
+    } else if (isLatest) {
       run = await prisma.reconciliationRun.findFirst({ orderBy: { createdAt: 'desc' } });
     }
 
     if (!run) {
-      console.error('❌ No reconciliation run found in database.');
-      return;
+      console.error(
+        runId
+          ? `❌ Reconciliation run not found with ID: ${runId}`
+          : '❌ No reconciliation run found in database.'
+      );
+      process.exit(1);
     }
 
-    // 2. Load ground truth
-    const gtPath = path.join(__dirname, '../../data/ground_truth.json');
+    // 2. Load ground truth from specified dataset
+    const datasetDir = dataset === 'holdout'
+      ? path.join(__dirname, '../../data/holdout')
+      : path.join(__dirname, '../../data');
+
+    const gtPath = path.join(datasetDir, 'ground_truth.json');
     if (!fs.existsSync(gtPath)) {
-      console.error('❌ Ground truth file not found at:', gtPath);
-      return;
+      console.error(`❌ Ground truth file not found at: ${gtPath}`);
+      process.exit(1);
     }
     const groundTruth: Record<string, GroundTruth> = JSON.parse(fs.readFileSync(gtPath, 'utf8'));
 
@@ -46,7 +55,7 @@ async function evaluateRun(runId?: string) {
     let fp = 0;
     let fn = 0;
 
-    const anomalyStats: Record<string, { tp: 0, fp: 0, fn: 0 }> = {
+    const anomalyStats: Record<string, { tp: number; fp: number; fn: number }> = {
       exact: { tp: 0, fp: 0, fn: 0 },
       amount_mismatch: { tp: 0, fp: 0, fn: 0 },
       date_drift: { tp: 0, fp: 0, fn: 0 },
@@ -89,19 +98,16 @@ async function evaluateRun(runId?: string) {
         if (shouldMatch) {
           fn++;
           anomalyStats[anomalyType].fn++;
-        } else {
-          // True Negative (correctly didn't match), not usually tracked in precision/recall for this,
-          // but we can just ignore it.
         }
       }
     }
 
     const calcPrecision = (t: number, f: number) => (t + f === 0 ? 'N/A' : (t / (t + f) * 100).toFixed(1) + '%');
     const calcRecall = (t: number, f: number) => (t + f === 0 ? 'N/A' : (t / (t + f) * 100).toFixed(1) + '%');
-    const calcF1 = (t: number, fp: number, fn: number) => {
-      if (t === 0) return (fp + fn === 0) ? 'N/A' : '0.0%';
-      const p = t / (t + fp);
-      const r = t / (t + fn);
+    const calcF1 = (t: number, fpVal: number, fnVal: number) => {
+      if (t === 0) return (fpVal + fnVal === 0) ? 'N/A' : '0.0%';
+      const p = t / (t + fpVal);
+      const r = t / (t + fnVal);
       return ((2 * p * r) / (p + r) * 100).toFixed(1) + '%';
     };
 
@@ -109,11 +115,14 @@ async function evaluateRun(runId?: string) {
     const overallRecall = tp + fn === 0 ? 0 : tp / (tp + fn);
     const overallF1 = tp + fp + fn === 0 ? 0 : (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall || 1);
 
-    console.log(`\n=== Evaluator Results (Run: ${run.id}) ===`);
+    console.log(`\n=== Evaluator Results (Run: ${run.id}) [Dataset: ${dataset}] ===`);
     console.log(`Overall Precision: ${(overallPrecision * 100).toFixed(2)}%`);
     console.log(`Overall Recall:    ${(overallRecall * 100).toFixed(2)}%`);
     console.log(`Overall F1 Score:  ${(overallF1 * 100).toFixed(2)}%`);
-    console.log(`Total Mismatches (FP): ${fp}\n`);
+    console.log(`Total Matches:     ${matches.length}`);
+    console.log(`True Positives:    ${tp}`);
+    console.log(`Total Mismatches (FP): ${fp}`);
+    console.log(`False Negatives (FN):  ${fn}\n`);
     
     console.log(`--- Breakdown by Anomaly Type ---`);
     for (const [type, stats] of Object.entries(anomalyStats)) {
@@ -124,51 +133,52 @@ async function evaluateRun(runId?: string) {
     }
     
     // Find amount_mismatch FNs and log their gap percentages
-    const amountMismatchDetails: { paymentId: string, amount: number, gap: number, percent: number }[] = [];
+    const amountMismatchDetails: { paymentId: string; amount: number; gap: number; percent: number }[] = [];
     
-    const rzpPath = path.join(__dirname, '../../data/razorpay_payments.csv');
-    const rzpCsv = fs.readFileSync(rzpPath, 'utf-8');
-    const Papa = require('papaparse');
-    const parsedRzp = Papa.parse(rzpCsv, { header: true }).data;
-    
-    // Also read bank csv to find the actual credit
-    const bankPath = path.join(__dirname, '../../data/bank_statement.csv');
-    const bankCsv = fs.readFileSync(bankPath, 'utf-8');
-    const parsedBank = Papa.parse(bankCsv, { header: true }).data;
-    
-    const rzpMap = new Map();
-    for (const row of parsedRzp) {
-      if (row.payment_id) rzpMap.set(row.payment_id, row);
-    }
+    const rzpPath = path.join(datasetDir, 'razorpay_payments.csv');
+    const bankPath = path.join(datasetDir, 'bank_statement.csv');
 
-    for (const [paymentId, truth] of Object.entries(groundTruth)) {
-      const match = matchMap.get(paymentId);
-      const shouldMatch = truth.bank_txn_ids.length > 0 && truth.ledger_entry_id !== null;
-      if (truth.anomaly_type === 'amount_mismatch' && shouldMatch && !match) {
-        const rzpRow = rzpMap.get(paymentId);
-        if (rzpRow) {
-          const amount = Number(rzpRow.amount);
-          const fee = Number(rzpRow.fee);
-          const tax = Number(rzpRow.tax);
-          const netAmount = amount - fee - tax;
-          
-          // Find the corresponding bank row for this ground truth
-          const bankTxnId = truth.bank_txn_ids[0];
-          const bankRow = parsedBank.find((b: any) => b.txn_id === bankTxnId);
-          const credit = bankRow ? Number(bankRow.credit) : netAmount;
-          
-          const gap = netAmount - credit;
-          const percent = (gap / amount) * 100;
-          amountMismatchDetails.push({ paymentId, amount, gap, percent });
+    if (fs.existsSync(rzpPath) && fs.existsSync(bankPath)) {
+      const rzpCsv = fs.readFileSync(rzpPath, 'utf-8');
+      const parsedRzp = Papa.parse<Record<string, unknown>>(rzpCsv, { header: true }).data;
+      
+      const bankCsv = fs.readFileSync(bankPath, 'utf-8');
+      const parsedBank = Papa.parse<Record<string, unknown>>(bankCsv, { header: true }).data;
+      
+      const rzpMap = new Map();
+      for (const row of parsedRzp) {
+        if (row.payment_id) rzpMap.set(row.payment_id, row);
+      }
+
+      for (const [paymentId, truth] of Object.entries(groundTruth)) {
+        const match = matchMap.get(paymentId);
+        const shouldMatch = truth.bank_txn_ids.length > 0 && truth.ledger_entry_id !== null;
+        if (truth.anomaly_type === 'amount_mismatch' && shouldMatch && !match) {
+          const rzpRow = rzpMap.get(paymentId);
+          if (rzpRow) {
+            const amount = Number(rzpRow.amount);
+            const fee = Number(rzpRow.fee);
+            const tax = Number(rzpRow.tax);
+            const netAmount = amount - fee - tax;
+            
+            // Find the corresponding bank row for this ground truth
+            const bankTxnId = truth.bank_txn_ids[0];
+            const bankRow = parsedBank.find((b: any) => b.txn_id === bankTxnId);
+            const credit = bankRow ? Number(bankRow.credit) : netAmount;
+            
+            const gap = netAmount - credit;
+            const percent = (gap / amount) * 100;
+            amountMismatchDetails.push({ paymentId, amount, gap, percent });
+          }
         }
       }
-    }
 
-    if (amountMismatchDetails.length > 0) {
-      amountMismatchDetails.sort((a, b) => b.percent - a.percent);
-      console.log(`\nFN amounts for amount_mismatch (Bank Fee Gap %):`);
-      for (const d of amountMismatchDetails) {
-        console.log(`  [${d.paymentId}] Amount: ${d.amount.toFixed(2)}, Gap: ${d.gap.toFixed(2)}, Gap %: ${d.percent.toFixed(2)}%`);
+      if (amountMismatchDetails.length > 0) {
+        amountMismatchDetails.sort((a, b) => b.percent - a.percent);
+        console.log(`\nFN amounts for amount_mismatch (Bank Fee Gap %):`);
+        for (const d of amountMismatchDetails) {
+          console.log(`  [${d.paymentId}] Amount: ${d.amount.toFixed(2)}, Gap: ${d.gap.toFixed(2)}, Gap %: ${d.percent.toFixed(2)}%`);
+        }
       }
     }
 
@@ -177,17 +187,46 @@ async function evaluateRun(runId?: string) {
       where: { id: run.id },
       data: {
         precision: overallPrecision,
-        recall: overallRecall
-      }
+        recall: overallRecall,
+      },
     });
     console.log(`\n✅ Persisted precision and recall to database for run ${run.id}`);
     
   } catch (error) {
     console.error('Error during evaluation:', error);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-const runIdArg = process.argv[2];
-evaluateRun(runIdArg);
+// Argument parsing
+const args = process.argv.slice(2);
+let runId: string | undefined;
+let isLatest = false;
+let dataset: 'default' | 'holdout' = 'default';
+
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === '--latest') {
+    isLatest = true;
+  } else if (arg === '--dataset=holdout' || (arg === '--dataset' && args[i + 1] === 'holdout')) {
+    dataset = 'holdout';
+    if (arg === '--dataset') i++;
+  } else if (arg === '--dataset=default' || (arg === '--dataset' && args[i + 1] === 'default')) {
+    dataset = 'default';
+    if (arg === '--dataset') i++;
+  } else if (!arg.startsWith('-')) {
+    runId = arg;
+  }
+}
+
+if (!runId && !isLatest) {
+  console.error('❌ Error: You must specify a Run ID or provide the --latest flag.');
+  console.error('Usage:');
+  console.error('  npx tsx scripts/evaluate.ts <run_id> [--dataset=holdout|default]');
+  console.error('  npx tsx scripts/evaluate.ts --latest [--dataset=holdout|default]');
+  process.exit(1);
+}
+
+evaluateRun(runId, isLatest, dataset);
