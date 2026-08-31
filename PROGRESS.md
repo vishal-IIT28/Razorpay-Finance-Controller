@@ -1,7 +1,21 @@
-# FinReconcile AI — Progress Summary (Phase 1: Rigor Foundation)
+# FinReconcile AI — Progress Summary
+
+## Phase 1: Rigor Foundation
 
 Phase 1 established backend measurement integrity, determinism, and reproducibility across the reconciliation pipeline. The synthetic data generator (`backend/src/data-generator/generator.ts`) was refactored with seeded PRNG execution via `@faker-js/faker`, configurable `GENERATOR_SEED` environment variable and `--output-dir` CLI arguments. A genuine holdout dataset fixture was generated and committed under `data/holdout/`, preserving the original `data/` benchmark for dual-set evaluation without data leakage.
 
 End-to-end and per-pass wall-clock execution timings were instrumented in `/api/reconcile` and persisted to PostgreSQL. The schema was updated with a `durationMs` field on `ReconciliationRun` backed by a Prisma migration (`20260831000000_add_duration_ms`). The reconciliation response now returns complete performance telemetry including `total_ms`, `pass1_ms`, `pass2_ms`, `pass3_ms`, and `records_per_second`, alongside the full, untruncated audit trail (`matches` and `exceptions`).
 
 Pass 3 LLM temperature was clamped to `0` for strict evaluation determinism. While this eliminates variance across repeated runs, it introduces a measurable trade-off: setting `temperature: 0` improved Pass 3 grading reproducibility but cost 1 split-transaction match on the tuned set (reducing split recall from 16/16 to 15/16 TP). The evaluation suite (`backend/scripts/evaluate.ts`) was overhauled to require explicit run targeting (`<run_id>` or `--latest`) and multi-dataset evaluation (`--dataset=holdout`). Benchmark testing confirms 100.00% precision across both sets, with 96.58% F1 (93.38% recall) on the tuned set and 97.42% F1 (94.96% recall) on the holdout set, with all 8 core engine unit tests passing unchanged.
+
+---
+
+## Phase 2: Agentic Backend & Interactive Infrastructure
+
+Phase 2 pivoted the backend architecture from a single blocking endpoint into an interactive AI platform with flexible data intake, live event streaming, and an agentic Q&A assistant.
+
+1. **Flexible Intake & Schema Detection (`backend/src/engine/schema-detector.ts`)**: Replaced fixed 3-field upload constraints with a flexible multipart intake endpoint (`POST /api/reconcile`, `POST /api/detect-schema`) accepting 1-N arbitrary CSV files. Role classification (gateway export, bank statement, internal ledger) uses weighted column-header heuristics with Gemini LLM classification as a fallback. On benchmark tests, standard files and arbitrarily renamed CSVs (e.g. `random_export_august_2026.csv`, `erp_journal_dump_final.csv`) were identified with 100% confidence by the heuristic detector, bypassing LLM latency. Incomplete uploads (e.g. missing bank statements) are caught early and return descriptive 400 errors without downstream pipeline crashes.
+
+2. **Server-Sent Events (SSE) Progress Streaming (`backend/src/engine/pipeline-runner.ts`)**: Added `GET /api/reconcile/:runId/stream` to broadcast live pipeline execution events (`pipeline_init`, `pass1_started`, `pass1_complete`, `pass2_started`, `pass2_complete`, `pass3_started`, `pass3_progress`, `pass3_complete`, `reconcile_complete`). In particular, Pass 3 emits granular per-record progress (current index, total, running match count, payment ID, match status, and reasoning) as each record resolves, eliminating the 2-minute "black box" wait. An in-memory event replay buffer prevents lost events if client connection timing varies.
+
+3. **Agentic Q&A Assistant (`backend/src/engine/chat-agent.ts`)**: Built a tool-calling assistant on Gemini 3.5 Flash Lite (`POST /api/chat`, `POST /api/runs/:runId/chat`) equipped with 5 Prisma-backed database tools (`getRunSummary`, `getRecordDetails`, `listExceptions`, `listMatchesByPass`, `searchRunData`). The agent executes real database lookups before answering, logs tool invocation traces, and strictly grounds all responses in verified record IDs (`payment_id`, `bank_txn_id`, `ledger_entry_id`, `invoice_id`). Conversation history is persisted to PostgreSQL via a new `ChatMessage` model and Prisma migration (`20260831010000_add_chat_messages`).

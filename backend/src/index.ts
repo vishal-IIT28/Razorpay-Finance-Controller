@@ -3,13 +3,14 @@ import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import multer from 'multer';
-import Papa from 'papaparse';
 import { PrismaClient } from '@prisma/client';
-import { runDeterministicPass, RzpRecord, BankRecord, LedgerRecord, MatchResult, toMoney } from './engine/deterministic';
-import { runFuzzyPass } from './engine/fuzzy';
-import { runLlmPass } from './engine/llm';
+import { handleChatMessage } from './engine/chat-agent';
+import { pipelineManager } from './engine/pipeline-runner';
+import {
+  detectFileSchema,
+  validateAndNormalizeUploads,
+} from './engine/schema-detector';
 
-// dotenv.config();
 dotenv.config({ path: ['.env', '../.env'] });
 
 const app = express();
@@ -20,255 +21,309 @@ const upload = multer({ dest: 'uploads/' });
 app.use(cors());
 app.use(express.json());
 
+function getParam(val: string | string[] | undefined): string {
+  if (Array.isArray(val)) return val[0] || '';
+  return val || '';
+}
+
+// Healthcheck
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FinReconcile AI API is running' });
 });
 
-app.post(
-  '/api/reconcile',
-  upload.fields([
-    { name: 'razorpay', maxCount: 1 },
-    { name: 'bank', maxCount: 1 },
-    { name: 'ledger', maxCount: 1 },
-  ]),
-  async (req: Request, res: Response): Promise<void> => {
-    const uploadedFiles: Express.Multer.File[] = [];
+// Schema Detection Endpoint (inspect detected roles without executing pipeline)
+app.post('/api/detect-schema', upload.any(), async (req: Request, res: Response): Promise<void> => {
+  const uploadedFiles = (req.files as Express.Multer.File[]) || [];
+  try {
+    if (uploadedFiles.length === 0) {
+      res.status(400).json({ error: 'No files uploaded. Please upload 1 or more CSV files.' });
+      return;
+    }
 
-    try {
-      const files = req.files as Partial<Record<'razorpay' | 'bank' | 'ledger', Express.Multer.File[]>>;
-      const razorpayFile = files.razorpay?.[0];
-      const bankFile = files.bank?.[0];
-      const ledgerFile = files.ledger?.[0];
+    const filePayloads = uploadedFiles.map((file) => ({
+      filename: file.originalname || file.filename,
+      content: fs.readFileSync(file.path, 'utf-8'),
+    }));
 
-      if (!razorpayFile || !bankFile || !ledgerFile) {
-        res.status(400).json({ error: 'Missing one or more required files: razorpay, bank, ledger' });
-        return;
-      }
+    const results = await Promise.all(
+      filePayloads.map((f) => detectFileSchema(f.filename, f.content))
+    );
 
-      uploadedFiles.push(razorpayFile, bankFile, ledgerFile);
+    const requiredRoles = ['razorpay', 'bank', 'ledger'];
+    const detectedRoles = results.map((r) => r.role);
+    const missingRoles = requiredRoles.filter((r) => !detectedRoles.includes(r as any));
 
-      const totalStart = performance.now();
-
-      const razorpayData = parseCsvFile(razorpayFile.path, normalizeRazorpayRecord);
-      const bankData = parseCsvFile(bankFile.path, normalizeBankRecord);
-      const ledgerData = parseCsvFile(ledgerFile.path, normalizeLedgerRecord);
-
-      const p1Start = performance.now();
-      const pass1Result = runDeterministicPass(razorpayData, bankData, ledgerData);
-      const pass1_ms = Math.round(performance.now() - p1Start);
-
-      const p2Start = performance.now();
-      const pass2Result = runFuzzyPass(pass1Result.unmatched.razorpay, pass1Result.unmatched.bank, pass1Result.unmatched.ledger);
-      const pass2_ms = Math.round(performance.now() - p2Start);
-
-      const p3Start = performance.now();
-      const pass3Result = await runLlmPass(
-        pass2Result.unmatched.razorpay,
-        pass2Result.unmatched.bank,
-        pass2Result.unmatched.ledger
-      );
-      const pass3_ms = Math.round(performance.now() - p3Start);
-
-      const total_ms = Math.round(performance.now() - totalStart);
-      const records_per_second = total_ms > 0 ? Number(((razorpayData.length / (total_ms / 1000))).toFixed(2)) : 0;
-
-      const allMatches = [...pass1Result.matches, ...pass2Result.matches, ...pass3Result.matches];
-      const exceptionLogs = buildExceptionLogs(pass3Result.unmatched, pass3Result.decisions);
-      const run = await persistRun(razorpayData.length, allMatches, exceptionLogs, total_ms);
-      const matchRate = razorpayData.length === 0 ? 0 : Number(((allMatches.length / razorpayData.length) * 100).toFixed(1));
-
-      res.json({
-        message: 'Reconciliation pipeline completed.',
-        run_id: run.id,
-        summary: {
-          total_records: razorpayData.length,
-          total_matched: allMatches.length,
-          match_rate_pct: matchRate,
-          exceptions: exceptionLogs.length,
-        },
-        timing: {
-          total_ms,
-          pass1_ms,
-          pass2_ms,
-          pass3_ms,
-          records_per_second,
-        },
-        pass1: {
-          matched: pass1Result.matches.length,
-        },
-        pass2: {
-          matched: pass2Result.matches.length,
-          unmatched_remaining: pass2Result.unmatched.razorpay.length,
-        },
-        pass3: {
-          enabled: pass3Result.enabled,
-          matched: pass3Result.matches.length,
-          unmatched_remaining: pass3Result.unmatched.razorpay.length,
-          notes: pass3Result.notes,
-        },
-        matches: allMatches,
-        exceptions: exceptionLogs,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Internal server error during reconciliation' });
-    } finally {
-      for (const file of uploadedFiles) {
-        fs.rmSync(file.path, { force: true });
-      }
+    res.json({
+      files: results,
+      all_required_present: missingRoles.length === 0,
+      missing_roles: missingRoles,
+    });
+  } catch (error) {
+    console.error('[detect-schema error]', error);
+    res.status(500).json({ error: 'Failed to inspect file schemas.' });
+  } finally {
+    for (const f of uploadedFiles) {
+      fs.rmSync(f.path, { force: true });
     }
   }
-);
+});
 
-async function persistRun(
-  totalRecords: number,
-  matches: MatchResult[],
-  exceptions: ExceptionPayload[],
-  durationMs?: number
-) {
-  return prisma.reconciliationRun.create({
-    data: {
-      status: 'completed',
-      totalRecords,
-      matchedRecords: matches.length,
-      exceptions: exceptions.length,
-      durationMs: durationMs ?? null,
-      matchResults: {
-        create: matches.map((match) => ({
-          paymentId: match.payment_id,
-          bankTxnId: match.bank_txn_id,
-          ledgerEntryId: match.ledger_entry_id,
-          matchPass: match.match_pass,
-          confidenceScore: match.confidence,
-          notes: match.notes,
-        })),
+// Flexible Reconciliation Intake Endpoint (Supports 1-N arbitrary CSV files & async execution)
+app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Promise<void> => {
+  const uploadedFiles = (req.files as Express.Multer.File[]) || [];
+
+  try {
+    if (uploadedFiles.length === 0) {
+      res.status(400).json({
+        error: 'No files provided. Please upload financial dataset CSV files (Razorpay gateway export, Bank statement, Internal ledger).',
+      });
+      return;
+    }
+
+    const filePayloads = uploadedFiles.map((file) => ({
+      filename: file.originalname || file.filename,
+      content: fs.readFileSync(file.path, 'utf-8'),
+    }));
+
+    // Step 1: Validate roles & normalize datasets
+    const validation = await validateAndNormalizeUploads(filePayloads);
+
+    if (!validation.valid || !validation.normalizedData) {
+      res.status(400).json({
+        error: validation.errorMessage || 'Uploaded files do not fulfill required reconciliation datasets.',
+        missing_roles: validation.missingRoles,
+        detected_roles: validation.detected,
+      });
+      return;
+    }
+
+    const { razorpay, bank, ledger } = validation.normalizedData;
+
+    // Step 2: Create initial ReconciliationRun in DB with status "processing"
+    const run = await prisma.reconciliationRun.create({
+      data: {
+        status: 'processing',
+        totalRecords: razorpay.length,
+        matchedRecords: 0,
+        exceptions: 0,
       },
-      exceptionLogs: {
-        create: exceptions.map((exception) => ({
-          sourceSystem: exception.source_system,
-          sourceId: exception.source_id,
-          reasoning: exception.reasoning,
-          suggestedAction: exception.suggested_action,
-        })),
-      },
-    },
-  });
-}
+    });
 
-type ExceptionPayload = {
-  source_system: string;
-  source_id: string;
-  reasoning: string;
-  suggested_action: string;
-};
+    const isSync = req.query.sync === 'true';
 
-function buildExceptionLogs(
-  unmatched: {
-  razorpay: RzpRecord[];
-  bank: BankRecord[];
-  ledger: LedgerRecord[];
-},
-  llmDecisions: Array<{
-    payment_id: string;
-    matched: boolean;
-    reasoning: string;
-    suggested_action: string;
-  }> = []
-): ExceptionPayload[] {
-  const decisionByPayment = new Map(llmDecisions.map((decision) => [decision.payment_id, decision]));
+    // Step 3: Trigger pipeline execution
+    if (isSync) {
+      const summaryPayload = await pipelineManager.executePipeline(run.id, razorpay, bank, ledger);
+      res.json({
+        message: 'Reconciliation pipeline completed (sync mode).',
+        detected_roles: validation.detected,
+        ...summaryPayload,
+      });
+    } else {
+      // Background execution
+      pipelineManager.executePipeline(run.id, razorpay, bank, ledger).catch((err) => {
+        console.error(`[Background pipeline failure for run ${run.id}]`, err);
+      });
 
-  return [
-    ...unmatched.razorpay.map((record) => ({
-      source_system: 'Razorpay',
-      source_id: record.payment_id,
-      reasoning:
-        decisionByPayment.get(record.payment_id)?.reasoning ??
-        'No deterministic, fuzzy, or LLM match found across bank and ledger sources.',
-      suggested_action:
-        decisionByPayment.get(record.payment_id)?.suggested_action ??
-        'Escalate to manual finance-ops investigation.',
-    })),
-    ...unmatched.bank.map((record) => ({
-      source_system: 'Bank',
-      source_id: record.txn_id,
-      reasoning: 'Bank credit remained unmatched after deterministic and fuzzy passes.',
-      suggested_action: 'Check for missing Razorpay payment, split settlement, or narration-only reference.',
-    })),
-    ...unmatched.ledger.map((record) => ({
-      source_system: 'Ledger',
-      source_id: record.entry_id,
-      reasoning: 'Ledger entry remained unmatched after deterministic and fuzzy passes.',
-      suggested_action: 'Verify invoice status, expected amount, and payment reference.',
-    })),
-  ];
-}
+      res.status(202).json({
+        message: 'Reconciliation pipeline started in background.',
+        run_id: run.id,
+        status: 'processing',
+        stream_url: `/api/reconcile/${run.id}/stream`,
+        detected_roles: validation.detected,
+        summary: {
+          razorpay_records: razorpay.length,
+          bank_records: bank.length,
+          ledger_records: ledger.length,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('[reconcile error]', error);
+    res.status(500).json({ error: 'Internal server error during reconciliation intake' });
+  } finally {
+    for (const f of uploadedFiles) {
+      fs.rmSync(f.path, { force: true });
+    }
+  }
+});
 
-function parseCsvFile<T>(filePath: string, normalize: (row: Record<string, unknown>) => T): T[] {
-  const fileContent = fs.readFileSync(filePath, 'utf-8');
-  const parsed = Papa.parse<Record<string, unknown>>(fileContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
+// Server-Sent Events (SSE) Live Progress Streaming
+app.get('/api/reconcile/:runId/stream', async (req: Request, res: Response): Promise<void> => {
+  const runId = getParam(req.params.runId);
 
-  if (parsed.errors.length > 0) {
-    const firstError = parsed.errors[0];
-    throw new Error(`CSV parse failed for ${filePath}: ${firstError?.message ?? 'unknown parse error'}`);
+  if (!runId) {
+    res.status(400).json({ error: 'runId parameter is required' });
+    return;
   }
 
-  return parsed.data.map(normalize);
-}
+  // Set SSE Headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
 
-function normalizeRazorpayRecord(row: Record<string, unknown>): RzpRecord {
-  return {
-    payment_id: text(row.payment_id),
-    order_id: text(row.order_id),
-    amount: toMoney(row.amount as string),
-    currency: text(row.currency),
-    status: text(row.status),
-    method: text(row.method),
-    description: text(row.description),
-    created_at: text(row.created_at),
-    settled_at: text(row.settled_at),
-    fee: toMoney(row.fee as string),
-    tax: toMoney(row.tax as string),
-    settlement_id: text(row.settlement_id),
+  const sendEvent = (event: { type: string; timestamp: string; data: any }) => {
+    res.write(`event: ${event.type}\n`);
+    res.write(`data: ${JSON.stringify({ runId, timestamp: event.timestamp, ...event.data })}\n\n`);
   };
-}
 
-function normalizeBankRecord(row: Record<string, unknown>): BankRecord {
-  return {
-    txn_id: text(row.txn_id),
-    date: text(row.date),
-    narration: text(row.narration),
-    credit: toMoney(row.credit as string),
-    debit: toMoney(row.debit as string),
-    balance: toMoney(row.balance as string),
-    utr: text(row.utr),
-    mode: text(row.mode),
+  // 1. Replay historical buffered events
+  const history = pipelineManager.getEventHistory(runId);
+  for (const historicalEvent of history) {
+    sendEvent(historicalEvent);
+  }
+
+  // Check if run is already done in DB
+  const existingRun = await prisma.reconciliationRun.findUnique({
+    where: { id: runId },
+    include: { matchResults: true, exceptionLogs: true },
+  });
+
+  if (existingRun && existingRun.status === 'completed') {
+    if (!history.some((e) => e.type === 'reconcile_complete')) {
+      sendEvent({
+        type: 'reconcile_complete',
+        timestamp: existingRun.createdAt.toISOString(),
+        data: {
+          run_id: existingRun.id,
+          status: 'completed',
+          summary: {
+            total_records: existingRun.totalRecords,
+            total_matched: existingRun.matchedRecords,
+            exceptions: existingRun.exceptions,
+          },
+          duration_ms: existingRun.durationMs,
+        },
+      });
+    }
+    res.end();
+    return;
+  }
+
+  // 2. Subscribe to real-time events
+  const eventListener = (event: any) => {
+    sendEvent(event);
+    if (event.type === 'reconcile_complete' || event.type === 'error') {
+      pipelineManager.removeListener(`run:${runId}`, eventListener);
+      res.end();
+    }
   };
-}
 
-function normalizeLedgerRecord(row: Record<string, unknown>): LedgerRecord {
-  return {
-    entry_id: text(row.entry_id),
-    invoice_id: text(row.invoice_id),
-    expected_amount: toMoney(row.expected_amount as string),
-    received_amount: nullableText(row.received_amount),
-    customer_name: text(row.customer_name),
-    due_date: text(row.due_date),
-    status: text(row.status),
-    payment_ref: nullableText(row.payment_ref),
-  };
-}
+  pipelineManager.on(`run:${runId}`, eventListener);
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-}
+  req.on('close', () => {
+    pipelineManager.removeListener(`run:${runId}`, eventListener);
+  });
+});
 
-function nullableText(value: unknown): string | null {
-  const normalized = text(value);
-  return normalized.length > 0 ? normalized : null;
-}
+// Fetch Completed Run Details & Audit Trail
+app.get('/api/runs/:runId', async (req: Request, res: Response): Promise<void> => {
+  const runId = getParam(req.params.runId);
+
+  try {
+    const run = await prisma.reconciliationRun.findUnique({
+      where: { id: runId },
+      include: {
+        matchResults: true,
+        exceptionLogs: true,
+      },
+    });
+
+    if (!run) {
+      res.status(404).json({ error: `Reconciliation run not found with ID: ${runId}` });
+      return;
+    }
+
+    const pass1 = run.matchResults.filter((m) => m.matchPass === 1).length;
+    const pass2 = run.matchResults.filter((m) => m.matchPass === 2).length;
+    const pass3 = run.matchResults.filter((m) => m.matchPass === 3).length;
+    const matchRate = run.totalRecords > 0 ? Number(((run.matchedRecords / run.totalRecords) * 100).toFixed(1)) : 0;
+
+    res.json({
+      run_id: run.id,
+      created_at: run.createdAt,
+      status: run.status,
+      summary: {
+        total_records: run.totalRecords,
+        total_matched: run.matchedRecords,
+        match_rate_pct: matchRate,
+        exceptions: run.exceptions,
+      },
+      timing: {
+        total_ms: run.durationMs,
+      },
+      passes: {
+        pass1_matched: pass1,
+        pass2_matched: pass2,
+        pass3_matched: pass3,
+      },
+      matches: run.matchResults.map((m) => ({
+        payment_id: m.paymentId,
+        bank_txn_id: m.bankTxnId,
+        ledger_entry_id: m.ledgerEntryId,
+        match_pass: m.matchPass,
+        confidence: m.confidenceScore,
+        notes: m.notes,
+      })),
+      exceptions: run.exceptionLogs.map((e) => ({
+        source_system: e.sourceSystem,
+        source_id: e.sourceId,
+        reasoning: e.reasoning,
+        suggested_action: e.suggestedAction,
+      })),
+    });
+  } catch (error) {
+    console.error('[get-run error]', error);
+    res.status(500).json({ error: 'Failed to retrieve run details' });
+  }
+});
+
+// Agentic Q&A Endpoints
+app.post(['/api/chat', '/api/runs/:runId/chat'], async (req: Request, res: Response): Promise<void> => {
+  const runId = getParam(req.params.runId) || String(req.body.runId || '');
+  const { message } = req.body;
+
+  if (!runId || !message) {
+    res.status(400).json({ error: 'Both "runId" and "message" are required.' });
+    return;
+  }
+
+  try {
+    const result = await handleChatMessage(runId, String(message).trim());
+    res.json(result);
+  } catch (error: any) {
+    console.error('[chat error]', error);
+    res.status(500).json({ error: error?.message || 'Failed to process chat query' });
+  }
+});
+
+// Chat Conversation History Retrieval
+app.get(['/api/chat/:runId', '/api/runs/:runId/chat'], async (req: Request, res: Response): Promise<void> => {
+  const runId = getParam(req.params.runId);
+
+  try {
+    const messages = await prisma.chatMessage.findMany({
+      where: { runId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    res.json({
+      run_id: runId,
+      messages: messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        tool_calls: m.toolCalls,
+        created_at: m.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('[get-chat error]', error);
+    res.status(500).json({ error: 'Failed to retrieve chat messages' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);

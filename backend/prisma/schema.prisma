@@ -19,6 +19,7 @@ model ReconciliationRun {
   recall          Float?
   matchResults    MatchResult[]
   exceptionLogs   ExceptionLog[]
+  chatMessages    ChatMessage[]
 }
 
 model MatchResult {
@@ -43,4 +44,14 @@ model ExceptionLog {
   reasoning           String?  // LLM's explanation of why it couldn't be matched
   suggestedAction     String?  // LLM's suggested fix
   createdAt           DateTime @default(now())
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  runId       String
+  run         ReconciliationRun @relation(fields: [runId], references: [id])
+  role        String   // "user", "assistant", "system"
+  content     String
+  toolCalls   Json?    // Array of { tool: string, args: any, result: any }
+  createdAt   DateTime @default(now())
 }

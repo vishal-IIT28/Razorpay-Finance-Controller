@@ -26,6 +26,16 @@ export type LlmPassResult = ReconciliationPassResult & {
   decisions: LlmDecision[];
 };
 
+export type LlmProgressCallback = (event: {
+  currentIndex: number;
+  totalRecords: number;
+  paymentId: string;
+  matched: boolean;
+  runningMatchCount: number;
+  reasoning?: string;
+  status: 'matched' | 'unmatched' | 'error';
+}) => void;
+
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const MIN_CONFIDENCE = 0.6; // Lower slightly to capture fee variance cases
 const MAX_RECORDS = Number(process.env.LLM_MAX_RECORDS ?? 50);
@@ -33,7 +43,8 @@ const MAX_RECORDS = Number(process.env.LLM_MAX_RECORDS ?? 50);
 export async function runLlmPass(
   unmatchedRzp: RzpRecord[],
   unmatchedBank: BankRecord[],
-  unmatchedLedger: LedgerRecord[]
+  unmatchedLedger: LedgerRecord[],
+  onProgress?: LlmProgressCallback
 ): Promise<LlmPassResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -67,8 +78,10 @@ export async function runLlmPass(
   const stillUnmatchedRzp: RzpRecord[] = [];
 
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const reviewRecords = unmatchedRzp.slice(0, MAX_RECORDS);
 
-  for (const rzp of unmatchedRzp.slice(0, MAX_RECORDS)) {
+  for (let idx = 0; idx < reviewRecords.length; idx++) {
+    const rzp = reviewRecords[idx]!;
     const candidateBanks = pickBankCandidates(rzp, unmatchedBank).filter((bank) => !usedBankIds.has(bank.txn_id));
     const candidateLedgers = pickLedgerCandidates(rzp, unmatchedLedger).filter(
       (ledger) => !usedLedgerIds.has(ledger.entry_id)
@@ -76,6 +89,17 @@ export async function runLlmPass(
 
     if (candidateBanks.length === 0 || candidateLedgers.length === 0) {
       stillUnmatchedRzp.push(rzp);
+      if (onProgress) {
+        onProgress({
+          currentIndex: idx + 1,
+          totalRecords: reviewRecords.length,
+          paymentId: rzp.payment_id,
+          matched: false,
+          runningMatchCount: matches.length,
+          reasoning: 'No candidate bank credits or ledger entries found.',
+          status: 'unmatched',
+        });
+      }
       continue;
     }
 
@@ -126,6 +150,17 @@ export async function runLlmPass(
         reasoning: 'LLM call failed after retries exhausted.',
         suggested_action: 'Retry processing or escalate.',
       });
+      if (onProgress) {
+        onProgress({
+          currentIndex: idx + 1,
+          totalRecords: reviewRecords.length,
+          paymentId: rzp.payment_id,
+          matched: false,
+          runningMatchCount: matches.length,
+          reasoning: lastError ? lastError.message : 'LLM call failed after retries exhausted.',
+          status: 'error',
+        });
+      }
       continue;
     }
 
@@ -136,7 +171,9 @@ export async function runLlmPass(
       const validBankIds = decision.bank_txn_ids.filter((id) => candidateBanks.some((bank) => bank.txn_id === id));
       const validLedger = candidateLedgers.find((ledger) => ledger.entry_id === decision.ledger_entry_id);
 
-      if (decision.matched && decision.confidence >= MIN_CONFIDENCE && validBankIds.length > 0 && validLedger) {
+      const isMatched = decision.matched && decision.confidence >= MIN_CONFIDENCE && validBankIds.length > 0 && !!validLedger;
+
+      if (isMatched && validLedger) {
         matches.push({
           payment_id: rzp.payment_id,
           bank_txn_id: validBankIds.join(','),
@@ -151,9 +188,32 @@ export async function runLlmPass(
       } else {
         stillUnmatchedRzp.push(rzp);
       }
+
+      if (onProgress) {
+        onProgress({
+          currentIndex: idx + 1,
+          totalRecords: reviewRecords.length,
+          paymentId: rzp.payment_id,
+          matched: isMatched,
+          runningMatchCount: matches.length,
+          reasoning: decision.reasoning,
+          status: isMatched ? 'matched' : 'unmatched',
+        });
+      }
     } catch (error) {
       notes.push(`Pass 3 parse failed for ${rzp.payment_id}: ${error instanceof Error ? error.message : 'unknown error'}`);
       stillUnmatchedRzp.push(rzp);
+      if (onProgress) {
+        onProgress({
+          currentIndex: idx + 1,
+          totalRecords: reviewRecords.length,
+          paymentId: rzp.payment_id,
+          matched: false,
+          runningMatchCount: matches.length,
+          reasoning: error instanceof Error ? error.message : 'Parse failed',
+          status: 'error',
+        });
+      }
     }
   }
 
