@@ -322,13 +322,28 @@ export function parseAndNormalizeData(
 }
 
 export async function validateAndNormalizeUploads(
-  files: Array<{ filename: string; content: string }>
+  files: Array<{ filename: string; content: string; explicitRole?: DetectedRole }>
 ): Promise<IntakeValidationResult> {
   const detected: SchemaDetectionResult[] = [];
   const filesByRole: Partial<Record<'razorpay' | 'bank' | 'ledger', { filename: string; content: string; mapping: ColumnMapping }>> = {};
 
   for (const file of files) {
-    const detection = await detectFileSchema(file.filename, file.content);
+    let detection = await detectFileSchema(file.filename, file.content);
+
+    // If user provided an explicit role override, honor it
+    if (file.explicitRole && file.explicitRole !== 'unknown') {
+      const validRoles: DetectedRole[] = ['razorpay', 'bank', 'ledger'];
+      if (validRoles.includes(file.explicitRole)) {
+        detection = {
+          ...detection,
+          role: file.explicitRole,
+          confidence: 1.0,
+          detectedVia: 'heuristic',
+          reasoning: `User manually assigned role to ${file.explicitRole}.`,
+        };
+      }
+    }
+
     detected.push(detection);
 
     if (detection.role !== 'unknown' && !filesByRole[detection.role]) {

@@ -15,8 +15,10 @@ import {
   ShieldCheck,
   Layers,
   HelpCircle,
+  FileText,
 } from 'lucide-react';
 import {
+  API_BASE,
   DetectedRole,
   SchemaDetectionResult,
   detectUploadedSchemas,
@@ -64,7 +66,7 @@ const ROLE_DEFINITIONS: Record<
     border: 'border-indigo-500/30',
   },
   unknown: {
-    label: 'Unassigned / Unclassified',
+    label: 'Unassigned / Exclude',
     description: 'CSV schema not mapped to a required reconciliation source',
     color: 'text-amber-400',
     badgeBg: 'bg-amber-950/70 text-amber-300 border-amber-800',
@@ -78,8 +80,9 @@ export default function UploadView({
 }: UploadViewProps) {
   const [items, setItems] = useState<UploadedFileItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<{ title: string; message: string; type: 'error' | 'warning' } | null>(null);
   const [isDetectingAll, setIsDetectingAll] = useState(false);
+  const [loadingPreset, setLoadingPreset] = useState<'holdout' | 'tuned' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Process newly added files and run AI schema detection
@@ -90,7 +93,11 @@ export default function UploadView({
     );
 
     if (validCsvs.length < newFiles.length) {
-      setGlobalError('Only CSV (.csv) files are supported for financial reconciliation.');
+      setGlobalError({
+        title: 'Unsupported File Format Detected',
+        message: 'Only CSV (.csv) files are supported for financial reconciliation. Non-CSV files were excluded.',
+        type: 'warning',
+      });
     }
 
     if (validCsvs.length === 0) return;
@@ -122,7 +129,7 @@ export default function UploadView({
               ...item,
               assignedRole: matchedDetection.role,
               detection: matchedDetection,
-              status: 'ready',
+              status: matchedDetection.role === 'unknown' ? 'ready' : 'ready',
             };
           }
           return item;
@@ -130,7 +137,11 @@ export default function UploadView({
       );
     } catch (err: any) {
       console.error('[Schema detection error]', err);
-      setGlobalError(err?.message || 'Failed to analyze CSV schemas via backend API.');
+      setGlobalError({
+        title: 'Schema Detection Service Error',
+        message: err?.message || 'Failed to connect to backend schema detection API at http://localhost:3001/api/detect-schema.',
+        type: 'error',
+      });
       setItems((prev) =>
         prev.map((item) =>
           newItems.some((n) => n.id === item.id)
@@ -140,6 +151,36 @@ export default function UploadView({
       );
     } finally {
       setIsDetectingAll(false);
+    }
+  };
+
+  // 1-Click Benchmark Presets (Routes through real detect-schema flow)
+  const handleLoadPreset = async (dataset: 'holdout' | 'tuned') => {
+    setLoadingPreset(dataset);
+    setGlobalError(null);
+    try {
+      const folder = dataset === 'holdout' ? 'holdout' : 'default';
+      const filenames = ['razorpay_payments.csv', 'bank_statement.csv', 'internal_ledger.csv'];
+
+      const filePromises = filenames.map(async (filename) => {
+        const res = await fetch(`${API_BASE}/api/samples/${folder}/${filename}`);
+        if (!res.ok) throw new Error(`Could not load preset fixture ${filename} from backend.`);
+        const blob = await res.blob();
+        return new File([blob], filename, { type: 'text/csv' });
+      });
+
+      const files = await Promise.all(filePromises);
+      // Route through real AI detection
+      await handleFilesAdded(files);
+    } catch (err: any) {
+      console.error('[Preset load error]', err);
+      setGlobalError({
+        title: 'Preset Load Error',
+        message: err?.message || 'Failed to fetch benchmark sample files from backend.',
+        type: 'error',
+      });
+    } finally {
+      setLoadingPreset(null);
     }
   };
 
@@ -200,55 +241,84 @@ export default function UploadView({
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
-              <Layers className="w-5 h-5" />
-            </span>
-            <h2 className="text-xl font-semibold text-slate-100 tracking-tight">
-              Intake & AI Schema Classifier
-            </h2>
-          </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Upload 1 to N arbitrary CSV statements. AI automatically classifies financial roles and maps columns.
-          </p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Benchmark Presets Toolbar */}
+      <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-2.5 text-xs text-slate-300">
+          <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+          <span>
+            <strong>Evaluation Presets:</strong> Load benchmark datasets through the live AI schema classifier.
+          </span>
         </div>
 
-        {items.length > 0 && (
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={handleClearAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 border border-slate-800 rounded-md transition-colors w-fit"
+            onClick={() => handleLoadPreset('holdout')}
+            disabled={loadingPreset !== null || isDetectingAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            Clear All Files
+            {loadingPreset === 'holdout' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400" />
+            )}
+            Load Holdout Dataset (`data/holdout/`)
           </button>
-        )}
+
+          <button
+            onClick={() => handleLoadPreset('tuned')}
+            disabled={loadingPreset !== null || isDetectingAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+          >
+            {loadingPreset === 'tuned' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-400" />
+            )}
+            Load Tuned Dataset (`data/`)
+          </button>
+        </div>
       </div>
 
-      {/* Global Error Banner */}
+      {/* Global Error/Warning Alert */}
       {globalError && (
-        <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/80 text-rose-300 text-sm flex items-start gap-3">
-          <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-medium text-rose-200">Intake / Detection Warning</p>
-            <p className="text-rose-300/90 text-xs mt-0.5">{globalError}</p>
+        <div
+          className={`p-4 rounded-xl border text-sm flex items-start justify-between gap-3 ${
+            globalError.type === 'error'
+              ? 'bg-rose-950/40 border-rose-800/80 text-rose-300'
+              : 'bg-amber-950/40 border-amber-800/80 text-amber-300'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {globalError.type === 'error' ? (
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="font-medium text-slate-100">{globalError.title}</p>
+              <p className="text-xs mt-0.5 opacity-90">{globalError.message}</p>
+            </div>
           </div>
+          <button
+            onClick={() => setGlobalError(null)}
+            className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 rounded bg-slate-800/60 border border-slate-700"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Drag and Drop Zone */}
+      {/* Drag & Drop Intake Box */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
+        className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200 ${
           isDragging
             ? 'border-sky-400 bg-sky-950/20 shadow-lg shadow-sky-500/5'
-            : 'border-slate-800 hover:border-slate-700 bg-slate-900/30 hover:bg-slate-900/50'
+            : 'border-slate-800 hover:border-slate-700 bg-[#0d1322] hover:bg-[#0f172a]'
         }`}
       >
         <input
@@ -265,37 +335,45 @@ export default function UploadView({
           }}
         />
 
-        <div className="max-w-md mx-auto flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300 shadow-inner">
+        <div className="max-w-md mx-auto flex flex-col items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-300 shadow-inner">
             <UploadCloud className="w-6 h-6 text-sky-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-200">
-              Drag & drop CSV files here, or <span className="text-sky-400 underline underline-offset-2">browse files</span>
+            <p className="text-sm font-semibold text-slate-200">
+              Drag and drop CSV files here, or <span className="text-sky-400 underline underline-offset-2">browse files</span>
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Supports arbitrary column orders and names across Payment Gateway exports, Bank credits/debits, and Internal Ledgers.
+              Supports arbitrary column orders and names across Payment Gateway exports, Bank credits/debits, and ERP Ledgers.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Uploaded Files Grid */}
+      {/* Uploaded Files & Classification Cards */}
       {items.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-400 px-1">
             <span className="font-semibold uppercase tracking-wider text-slate-400">
-              Analyzed Datasets ({items.length})
+              Classified Statements ({items.length})
             </span>
-            {isDetectingAll && (
-              <span className="flex items-center gap-1.5 text-sky-400">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                AI Classifying Schemas...
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {isDetectingAll && (
+                <span className="flex items-center gap-1.5 text-sky-400">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  AI Classifying Schemas...
+                </span>
+              )}
+              <button
+                onClick={handleClearAll}
+                className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3.5">
+          <div className="grid grid-cols-1 gap-3">
             {items.map((item) => {
               const roleDef = ROLE_DEFINITIONS[item.assignedRole];
               const isLlm = item.detection?.detectedVia === 'llm';
@@ -303,9 +381,9 @@ export default function UploadView({
               return (
                 <div
                   key={item.id}
-                  className={`p-4 rounded-xl bg-slate-900/70 border transition-all ${
+                  className={`p-4 rounded-xl bg-[#0f172a] border transition-all ${
                     item.status === 'error'
-                      ? 'border-rose-800/60 bg-rose-950/10'
+                      ? 'border-rose-800/60 bg-rose-950/20'
                       : roleDef.border
                   }`}
                 >
@@ -388,7 +466,7 @@ export default function UploadView({
                     <div className="flex items-center gap-3 shrink-0 self-end lg:self-center">
                       <div className="flex flex-col items-end">
                         <label className="text-[10px] uppercase font-semibold text-slate-400 mb-1">
-                          Role Mapping
+                          Assigned Role
                         </label>
                         <select
                           value={item.assignedRole}
@@ -419,7 +497,7 @@ export default function UploadView({
       )}
 
       {/* Dataset Validation & Launch Bar */}
-      <div className="p-5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4">
+      <div className="p-5 rounded-2xl bg-[#0f172a] border border-slate-800 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
@@ -484,7 +562,7 @@ export default function UploadView({
           <button
             onClick={handleStartReconciliation}
             disabled={!isDatasetReady || isSubmitting}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold shadow-lg transition-all ${
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold shadow-lg transition-all ${
               isDatasetReady && !isSubmitting
                 ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20 cursor-pointer'
                 : 'bg-slate-800 text-slate-400 border border-slate-700/60 cursor-not-allowed'

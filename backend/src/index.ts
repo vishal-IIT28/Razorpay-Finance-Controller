@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { handleChatMessage } from './engine/chat-agent';
@@ -33,14 +34,17 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Sample Datasets for 1-Click UI Demo & Evaluation
 app.get('/api/samples/:dataset/:filename', (req: Request, res: Response): void => {
-  const dataset = req.params.dataset === 'holdout' ? 'holdout' : '';
-  const filename = String(req.params.filename);
-  const filePath = path.join(__dirname, '../../data', dataset, filename);
+  const datasetParam = getParam(req.params.dataset);
+  const filenameParam = getParam(req.params.filename);
+  const dataset = datasetParam === 'holdout' ? 'holdout' : '';
+  const filename = filenameParam || '';
+  const repoRoot = path.resolve(__dirname, '../..');
+  const filePath = path.resolve(repoRoot, 'data', dataset, filename);
   if (fs.existsSync(filePath)) {
     res.setHeader('Content-Type', 'text/csv');
-    res.sendFile(path.resolve(filePath));
+    res.sendFile(filePath);
   } else {
-    res.status(404).json({ error: `Sample file not found at ${filePath}` });
+    res.status(404).json({ error: `Sample file not found: ${filePath}` });
   }
 });
 
@@ -93,9 +97,11 @@ app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Pr
       return;
     }
 
+    const validRoles: Array<'razorpay' | 'bank' | 'ledger'> = ['razorpay', 'bank', 'ledger'];
     const filePayloads = uploadedFiles.map((file) => ({
       filename: file.originalname || file.filename,
       content: fs.readFileSync(file.path, 'utf-8'),
+      explicitRole: validRoles.includes(file.fieldname as any) ? (file.fieldname as 'razorpay' | 'bank' | 'ledger') : undefined,
     }));
 
     // Step 1: Validate roles & normalize datasets

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Sparkles,
-  Activity,
   History,
   CheckCircle2,
   Clock,
@@ -33,7 +32,6 @@ export default function FinReconcileApp() {
   const [pastRuns, setPastRuns] = useState<PastRunSummary[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadingSample, setLoadingSample] = useState<'tuned' | 'holdout' | null>(null);
 
   // Load past runs history on mount or when opening modal
   const loadHistory = async () => {
@@ -51,39 +49,6 @@ export default function FinReconcileApp() {
   useEffect(() => {
     loadHistory();
   }, []);
-
-  // Quick load sample dataset (fetches from backend /api/samples)
-  const handleLoadSample = async (dataset: 'tuned' | 'holdout') => {
-    setLoadingSample(dataset);
-    setErrorMessage(null);
-    try {
-      const folder = dataset === 'holdout' ? 'holdout' : 'default';
-      const filenames = ['razorpay_payments.csv', 'bank_statement.csv', 'internal_ledger.csv'];
-
-      const filePromises = filenames.map(async (filename) => {
-        const res = await fetch(`${API_BASE}/api/samples/${folder}/${filename}`);
-        if (!res.ok) throw new Error(`Could not fetch sample ${filename}`);
-        const blob = await res.blob();
-        return new File([blob], filename, { type: 'text/csv' });
-      });
-
-      const files = await Promise.all(filePromises);
-      // Trigger file handling in UploadView via synthetic drop / state or directly
-      // Pass directly to reconciliation test
-      const uploadPayloads: Array<{ file: File; assignedRole: DetectedRole }> = [
-        { file: files[0]!, assignedRole: 'razorpay' },
-        { file: files[1]!, assignedRole: 'bank' },
-        { file: files[2]!, assignedRole: 'ledger' },
-      ];
-
-      await handleStartReconciliation(uploadPayloads);
-    } catch (err: any) {
-      console.error('[Load sample error]', err);
-      setErrorMessage(err?.message || 'Failed to load sample dataset');
-    } finally {
-      setLoadingSample(null);
-    }
-  };
 
   // Trigger reconciliation from UploadView
   const handleStartReconciliation = async (
@@ -110,31 +75,31 @@ export default function FinReconcileApp() {
       <header className="sticky top-0 z-30 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80 px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/10">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/10">
               <Layers className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-semibold text-white tracking-tight">
-                  FinReconcile AI
+                  FinReconcile
                 </h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono-numbers font-medium bg-sky-950/80 text-sky-300 border border-sky-800/80">
-                  v2.0 Agentic
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono-numbers font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                  Audit Controller
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Autonomous 3-Pass Financial Operations Controller & Q&A Auditor
+                Automated Settlement & Financial Operations Controller
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             {/* System Status Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0f172a] border border-slate-800 text-xs text-slate-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Backend Online</span>
-              <span className="text-slate-400">|</span>
-              <span className="text-slate-400">Gemini 3.5 Active</span>
+              <span>System Online</span>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-400">Neon DB Connected</span>
             </div>
 
             {/* Past Runs History Button */}
@@ -165,53 +130,13 @@ export default function FinReconcileApp() {
 
         {/* VIEW 1: Flexible Upload & Schema Detection */}
         {activeView === 'upload' && (
-          <div className="space-y-8">
-            {/* Benchmark Quick-Load Toolbar */}
-            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs text-slate-300">
-                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>
-                  <strong>Buildathon Evaluation Presets:</strong> Test 150-record dual benchmark sets with 1 click.
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleLoadSample('holdout')}
-                  disabled={loadingSample !== null}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-800/80 transition-all cursor-pointer"
-                >
-                  {loadingSample === 'holdout' ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-400" />
-                  )}
-                  Load Holdout Dataset (`data/holdout/`)
-                </button>
-
-                <button
-                  onClick={() => handleLoadSample('tuned')}
-                  disabled={loadingSample !== null}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer"
-                >
-                  {loadingSample === 'tuned' ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
-                  )}
-                  Load Tuned Dataset (`data/`)
-                </button>
-              </div>
-            </div>
-
-            <UploadView
-              onStartReconciliation={handleStartReconciliation}
-              isSubmitting={isSubmitting}
-            />
-          </div>
+          <UploadView
+            onStartReconciliation={handleStartReconciliation}
+            isSubmitting={isSubmitting}
+          />
         )}
 
-        {/* View 2, View 3 placeholders (built sequentially in next steps) */}
+        {/* View 2 placeholder */}
         {activeView === 'live-stream' && (
           <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-sky-400 animate-spin mx-auto" />
