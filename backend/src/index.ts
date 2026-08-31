@@ -31,6 +31,19 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FinReconcile AI API is running' });
 });
 
+// Sample Datasets for 1-Click UI Demo & Evaluation
+app.get('/api/samples/:dataset/:filename', (req: Request, res: Response): void => {
+  const dataset = req.params.dataset === 'holdout' ? 'holdout' : '';
+  const filename = String(req.params.filename);
+  const filePath = path.join(__dirname, '../../data', dataset, filename);
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/csv');
+    res.sendFile(path.resolve(filePath));
+  } else {
+    res.status(404).json({ error: `Sample file not found at ${filePath}` });
+  }
+});
+
 // Schema Detection Endpoint (inspect detected roles without executing pipeline)
 app.post('/api/detect-schema', upload.any(), async (req: Request, res: Response): Promise<void> => {
   const uploadedFiles = (req.files as Express.Multer.File[]) || [];
@@ -216,6 +229,45 @@ app.get('/api/reconcile/:runId/stream', async (req: Request, res: Response): Pro
   req.on('close', () => {
     pipelineManager.removeListener(`run:${runId}`, eventListener);
   });
+});
+
+// Fetch List of Past Reconciliation Runs
+app.get('/api/runs', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const runs = await prisma.reconciliationRun.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        totalRecords: true,
+        matchedRecords: true,
+        exceptions: true,
+        durationMs: true,
+        precision: true,
+        recall: true,
+      },
+    });
+
+    res.json({
+      runs: runs.map((r) => ({
+        run_id: r.id,
+        created_at: r.createdAt,
+        status: r.status,
+        total_records: r.totalRecords,
+        total_matched: r.matchedRecords,
+        match_rate_pct: r.totalRecords > 0 ? Number(((r.matchedRecords / r.totalRecords) * 100).toFixed(1)) : 0,
+        exceptions: r.exceptions,
+        duration_ms: r.durationMs,
+        precision: r.precision,
+        recall: r.recall,
+      })),
+    });
+  } catch (error) {
+    console.error('[list-runs error]', error);
+    res.status(500).json({ error: 'Failed to retrieve reconciliation runs list' });
+  }
 });
 
 // Fetch Completed Run Details & Audit Trail
