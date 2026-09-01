@@ -14,6 +14,8 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import UploadView from '@/components/UploadView';
+import LiveRunView from '@/components/LiveRunView';
+import DashboardView from '@/components/DashboardView';
 import {
   API_BASE,
   DetectedRole,
@@ -136,13 +138,29 @@ export default function FinReconcileApp() {
           />
         )}
 
-        {/* View 2 placeholder */}
-        {activeView === 'live-stream' && (
-          <div className="p-8 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-4">
-            <RefreshCw className="w-8 h-8 text-sky-400 animate-spin mx-auto" />
-            <h3 className="text-lg font-semibold text-slate-200">Reconciliation Running</h3>
-            <p className="text-xs text-slate-400 font-mono-numbers">Active Run ID: {activeRunId}</p>
-          </div>
+        {/* VIEW 2: Live Run (SSE Streaming) */}
+        {activeView === 'live-stream' && activeRunId && (
+          <LiveRunView
+            runId={activeRunId}
+            onComplete={(completedRunId) => {
+              setActiveRunId(completedRunId);
+              setActiveView('dashboard');
+            }}
+          />
+        )}
+
+        {/* VIEW 3: Results Dashboard + Full Audit Trail */}
+        {activeView === 'dashboard' && activeRunId && (
+          <DashboardView
+            runId={activeRunId}
+            onNewRun={() => {
+              setActiveRunId(null);
+              setActiveView('upload');
+            }}
+            onInspectLive={() => {
+              setActiveView('live-stream');
+            }}
+          />
         )}
       </main>
 
@@ -159,7 +177,7 @@ export default function FinReconcileApp() {
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -198,10 +216,30 @@ export default function FinReconcileApp() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <span className="text-[11px] text-slate-400 font-mono-numbers">
+                    <div className="flex items-center gap-2.5 self-end sm:self-center">
+                      <span className="text-[11px] text-slate-400 font-mono-numbers mr-1">
                         {new Date(run.created_at).toLocaleDateString()} {new Date(run.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
+                      <button
+                        onClick={() => {
+                          setActiveRunId(run.run_id);
+                          setActiveView('dashboard');
+                          setShowHistoryModal(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/80 text-xs text-emerald-300 font-medium cursor-pointer transition-colors"
+                      >
+                        Dashboard
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveRunId(run.run_id);
+                          setActiveView('live-stream');
+                          setShowHistoryModal(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-sky-950/70 hover:bg-sky-900 border border-sky-800/80 text-xs text-sky-300 font-medium cursor-pointer transition-colors"
+                      >
+                        Telemetry
+                      </button>
                     </div>
                   </div>
                 ))

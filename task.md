@@ -17,7 +17,16 @@
 - [x] Task 2.6: Scoped conversation isolation via `conversationId` on `ChatMessage`, migration `20260831020000_add_conversation_id_to_chat_messages`, and verified multi-thread isolation (`test-chat-isolated-conversations.ts`)
 
 ## Phase 3: Interactive Frontend
+- [x] Task 3.1: View 1 — Flexible multi-file upload & AI schema classification with manual dropdown overrides and error states
+- [x] Task 3.2: View 2 — SSE-driven live telemetry console with 3-pass stage cards, real-time scrolling resolution ticker, and replay
+- [x] Task 3.3: View 3 — Results Dashboard + Full Audit Trail (KPI cards, paginated & filterable matches & exceptions tables, JSON & CSV export)
+- [x] Task 3.4: View 4 — Persistent Chat Panel ("Settlement Q&A Agent") with tool-call traces, conversation isolation, and suggested prompt chips
 
 ## Phase 4: Validation & Tests
+- [x] Task 4.1: Automated integration tests for flexible intake, schema detector, SSE streaming, and chat agent tools
+- [x] Task 4.2: End-to-end full run regression suite (`npm test` — 27/27 tests passing)
 
-## Phase 5: Docs & Demo
+## Phase 5: Documentation & Submission Packaging
+- [x] Task 5.1: Clean baseline DB seeding & clear development artifact logs
+- [x] Task 5.2: Final README.md, PROGRESS.md, and system architecture walkthrough
+

@@ -9,6 +9,7 @@ import {
   RzpRecord,
   toMoney,
 } from './deterministic';
+import { DEFAULT_GEMINI_MODEL } from '../config';
 
 type LlmDecision = {
   matched: boolean;
@@ -36,7 +37,7 @@ export type LlmProgressCallback = (event: {
   status: 'matched' | 'unmatched' | 'error';
 }) => void;
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+const MODEL_NAME = DEFAULT_GEMINI_MODEL;
 const MIN_CONFIDENCE = 0.6; // Lower slightly to capture fee variance cases
 const MAX_RECORDS = Number(process.env.LLM_MAX_RECORDS ?? 50);
 
@@ -103,12 +104,12 @@ export async function runLlmPass(
       continue;
     }
 
-    // Pacing delay (3.2 seconds = ~18 RPM, staying safely under 20 RPM limit)
-    await delay(3200);
+    // Pacing delay (4.2 seconds = ~14.2 RPM, staying safely under 15 RPM free tier limit)
+    await delay(4200);
 
     let result: any = null;
     let attempts = 0;
-    const maxRetries = 3;
+    const maxRetries = 5;
     let success = false;
     let lastError: Error | null = null;
     

@@ -58,8 +58,10 @@ export function toMoney(value: number | string | null | undefined): number {
   return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : 0;
 }
 
-export function getDatePart(value: string | null | undefined): string {
-  return value?.split('T')[0] ?? '';
+export function getDatePart(value: string | number | Date | null | undefined): string {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0] || '';
+  return String(value).split('T')[0]?.split(' ')[0] || '';
 }
 
 export function getRazorpayNetAmount(rzp: RzpRecord): number {

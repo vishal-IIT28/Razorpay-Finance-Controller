@@ -21,3 +21,52 @@ Phase 2 pivoted the backend architecture from a single blocking endpoint into an
 3. **Agentic Q&A Assistant (`backend/src/engine/chat-agent.ts`)**: Built a tool-calling assistant on Gemini 3.5 Flash Lite (`POST /api/chat`, `POST /api/runs/:runId/chat`) equipped with 5 Prisma-backed database tools (`getRunSummary`, `getRecordDetails`, `listExceptions`, `listMatchesByPass`, `searchRunData`). The agent executes real database lookups before answering, logs tool invocation traces, and strictly grounds all responses in verified record IDs (`payment_id`, `bank_txn_id`, `ledger_entry_id`, `invoice_id`).
 
 4. **Multi-Session Conversation Isolation (`backend/prisma/schema.prisma`)**: Enhanced the chat architecture with a `conversationId` UUID column and composite index `[runId, conversationId]` on `ChatMessage` via migration `20260831020000_add_conversation_id_to_chat_messages`. Chat history queries, memory window loading, and REST retrieval endpoints (`GET /api/runs/:runId/chat?conversationId=...`) are now strictly scoped to individual sessions, preventing cross-session message bleeding while allowing multiple independent discussions on the same reconciliation run. Automated tests (`backend/scripts/test-chat-isolated-conversations.ts`) confirm 100% thread isolation and independent refusal paths for invalid run IDs vs out-of-scope topics.
+
+---
+
+## Phase 3: Interactive Frontend Rebuild
+
+Phase 3 replaced the old static upload layout with an interactive financial operations console built in Next.js and Tailwind CSS with a cohesive Obsidian & Dark Titanium visual theme (`#090d16` canvas, `#0f172a` cards, `#1e293b` borders, JetBrains Mono font).
+
+1. **View 1: Flexible Multi-File Intake & AI Schema Detector (`UploadView.tsx`)**:
+   - Live drag-and-drop file ingestion supporting 1-N CSV files with instant client-side parsing and heuristic / LLM schema classification.
+   - User-controlled role override dropdowns (`<select>`) that directly govern backend multipart fieldname mapping and reconciliation execution.
+   - Comprehensive error banners for missing roles, invalid file formats, and network communication disconnects.
+
+2. **View 2: Live Reconciliation Telemetry Console (`LiveRunView.tsx`)**:
+   - Zero-polling Server-Sent Events stream (`GET /api/reconcile/:runId/stream`) with real-time named event listeners (`pass1_complete`, `pass2_complete`, `pass3_progress`, `reconcile_complete`).
+   - 3-Pass Stage Cards displaying status badges, running match counters, and exact execution timings.
+   - Scrolling AI Resolution Ticker rendering live Pass 3 events as Gemini processes them, with payment IDs, outcome badges (`MATCHED` vs `UNRESOLVED EXCEPTION`), and quoted AI reasoning.
+   - Replay support: inspecting any past run instantly reconstructs stage timings and ticker logs from PostgreSQL audit logs.
+
+3. **View 3: Results Dashboard + Full Audit Trail (`DashboardView.tsx`)**:
+   - 4 Dense KPI performance tiles: Overall Match Rate (with progress indicator), Pass-by-Pass Breakdown (Pass 1 Exact, Pass 2 Fuzzy, Pass 3 AI), Exceptions & Unresolved Count, Speed & Accuracy (duration, throughput recs/sec, benchmark precision & 0 false positives).
+   - Matched Records Audit Table: Searchable, sortable, paginated table (15 records/page) filterable by match pass with copyable payment IDs, confidence progress bars, and audit notes.
+   - Exceptions & Discrepancies Table: Filterable by source system (Razorpay, Bank, Ledger) with source IDs, full AI diagnostic reasoning, and actionable recommended finance-ops actions.
+   - Full Export Suite: One-click export of complete audit payload in JSON format (`finreconcile-audit-<runId>.json`) and Matches CSV.
+
+4. **View 4: Persistent Settlement Q&A Agent (`ChatPanel.tsx`)**:
+   - Docked slide-over side panel reachable seamlessly alongside View 3 with sticky header toggle and floating quick-launch CTA.
+   - Client-side `conversationId` session persistence (`sessionStorage`), preserving multi-turn message history across page refreshes and run navigation via `GET /api/runs/:runId/chat?conversationId=...`.
+   - Prominent collapsible tool-call execution traces showing exact tool name (e.g. `getRecordDetails`, `listExceptions`), invocation parameters, and live database query outputs.
+   - Distinct **Agent Policy Refusal Card** styling with an amber shield badge, policy header (`AGENT POLICY: REQUEST DECLINED / OUT OF SCOPE`), and explicit scope rationale for out-of-scope queries (e.g. weather, non-reconciliation topics) or invalid run IDs.
+
+---
+
+## Phase 4: Validation & Test Hardening
+- **Comprehensive Automated Test Suite (`npm test`)**: 27 unit and integration tests passing with 0 failures across 5 dedicated test modules:
+  1. `engine.test.ts` (8 tests): Pass 1 deterministic exact matching, uncaptured/failed rejection, date drift routing, Pass 2 fuzzy tolerance, calibrated 0.6 Fuse.js narration matching, 2% fee threshold, and greedy fallback protection.
+  2. `intake-schema.test.ts` (7 tests): Razorpay/Bank/Ledger signature heuristic detection, 3-role multi-file validation, column normalization, missing role detection, manual dropdown overrides, and non-financial file rejection.
+  3. `stream-events.test.ts` (3 tests): Chronological pipeline event sequencing, real-time subscriber delivery, and multi-run event isolation.
+  4. `chat-agent.test.ts` (6 tests): Database tool executions (`getRunSummary`, `getRecordDetails`, `listExceptions`, `listMatchesByPass`), non-existent run refusal handling, and database `conversationId` thread isolation.
+  5. `e2e-pipeline.test.ts` (3 tests): Full holdout dataset intake validation, multi-pass matching execution with 0 false positives, and JSON audit export schema conformance.
+
+> [!NOTE]
+> **Model Configuration & Benchmark Verification**:
+> The model configuration was briefly unified under `gemini-2.5-flash` during Phase 4 cleanup, but reverted to `gemini-3.5-flash-lite` after confirming via live API diagnostics that they are distinct models with separate quota allocations (not aliased). The Phase 1 benchmark numbers (100.00% precision, 0 false positives, 96.58% tuned F1 on run `0f376348-ba00-4c04-99a6-f09c35a4967d` / 97.42% holdout F1 on run `05a78a29-368e-4fb3-b099-bf1e0e187530`) were measured directly against `gemini-3.5-flash-lite` with `temperature: 0` (the model currently active across `config.ts` and `.env`), representing full verified benchmark fidelity.
+
+---
+
+## Phase 5 Tracked Items:
+- **Database Seeding**: Clean up dev/smoke test runs and seed clean baseline runs for evaluator review.
+- **Documentation**: Final README.md, system architecture diagrams, and submission packaging.

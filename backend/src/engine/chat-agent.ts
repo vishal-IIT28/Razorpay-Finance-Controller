@@ -1,8 +1,9 @@
 import { FunctionDeclaration, GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
+import { DEFAULT_GEMINI_MODEL } from '../config';
 
 const prisma = new PrismaClient();
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+const MODEL_NAME = DEFAULT_GEMINI_MODEL;
 
 export type ToolCallRecord = {
   tool: string;
@@ -129,7 +130,7 @@ const toolDeclarations: FunctionDeclaration[] = [
 ];
 
 // 2. Real Database Tool Implementations
-async function executeTool(name: string, args: Record<string, any>): Promise<any> {
+export async function executeTool(name: string, args: Record<string, any>): Promise<any> {
   const { runId } = args;
 
   switch (name) {
@@ -335,6 +336,39 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
   }
 }
 
+async function generateContentWithRetry(modelInstance: any, request: any, maxRetries = 5): Promise<any> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await modelInstance.generateContent(request);
+    } catch (err: any) {
+      attempt++;
+      const isTransient =
+        err?.status === 429 ||
+        err?.message?.includes('429') ||
+        err?.message?.includes('Resource has been exhausted') ||
+        err?.message?.includes('Too Many Requests') ||
+        err?.message?.includes('fetch failed') ||
+        err?.message?.includes('ECONNRESET') ||
+        err?.message?.includes('ETIMEDOUT');
+      if (isTransient && attempt < maxRetries) {
+        let delayMs = attempt * 8000;
+        try {
+          const retryInfo = err?.errorDetails?.find((d: any) => d['@type']?.includes('RetryInfo'));
+          if (retryInfo?.retryDelay) {
+            const seconds = parseFloat(retryInfo.retryDelay.replace('s', ''));
+            if (!isNaN(seconds)) delayMs = Math.max(delayMs, (seconds + 2) * 1000);
+          }
+        } catch {}
+        console.warn(`[chat-agent] Transient error / Rate limit hit. Waiting ${Math.round(delayMs / 1000)}s before retry ${attempt}/${maxRetries}...`);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 // 3. Agent Execution Loop with Gemini Function Calling
 export async function handleChatMessage(
   runId: string,
@@ -380,13 +414,29 @@ CRITICAL INSTRUCTIONS:
 3. If an unmatched exception is asked about, explain the recorded reasoning from the audit log and the suggested action clearly.
 4. If a query cannot be answered from the database records or tools (e.g. external data like weather, or nonexistent IDs), say so explicitly and decline rather than hallucinating.
 5. Provide concise, professional, audit-ready summaries with formatted markdown tables or bullet points when helpful.`,
+    generationConfig: {
+      temperature: 0,
+    },
   });
 
-  // Prepare conversation contents with prior history and current question
-  const contents: any[] = priorHistory.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
+  // Load prior messages for this specific conversation
+  const priorMessages = await prisma.chatMessage.findMany({
+    where: {
+      runId,
+      conversationId: activeConversationId,
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 10,
+  });
+
+  const contents: any[] = [];
+
+  for (const m of priorMessages) {
+    contents.push({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }],
+    });
+  }
 
   contents.push({
     role: 'user',
@@ -394,7 +444,7 @@ CRITICAL INSTRUCTIONS:
   });
 
   const toolCallsLog: ToolCallRecord[] = [];
-  let currentResponse = await model.generateContent({ contents });
+  let currentResponse = await generateContentWithRetry(model, { contents });
 
   // Function calling resolution loop (up to 5 turns)
   let loopCount = 0;
@@ -437,7 +487,7 @@ CRITICAL INSTRUCTIONS:
       parts: functionResponseParts,
     });
 
-    currentResponse = await model.generateContent({ contents });
+    currentResponse = await generateContentWithRetry(model, { contents });
   }
 
   const finalAnswer = currentResponse.response.text() || 'Unable to generate response from tool data.';

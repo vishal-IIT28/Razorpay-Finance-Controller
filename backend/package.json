@@ -6,8 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "generate:data": "tsx src/data-generator/generator.ts",
-    "start": "node dist/index.js",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test test/**/*.test.ts",
+    "test:integration": "tsx scripts/test-chat.ts"
   },
   "keywords": [],
   "author": "",

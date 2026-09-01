@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Papa from 'papaparse';
 import { RzpRecord, BankRecord, LedgerRecord, toMoney } from './deterministic';
+import { DEFAULT_GEMINI_MODEL } from '../config';
 
 export type DetectedRole = 'razorpay' | 'bank' | 'ledger' | 'unknown';
 
@@ -46,7 +47,7 @@ const ROLE_FIELD_SYNONYMS: Record<DetectedRole, Record<string, string[]>> = {
     settlement_id: ['settlement_id', 'settleid', 'payout_id', 'batch_id'],
   },
   bank: {
-    txn_id: ['txn_id', 'transaction_id', 'bank_txn_id', 'trans_id', 'reference_no', 'ref_id', 'id'],
+    txn_id: ['txn_id', 'transaction_id', 'bank_txn_id', 'trans_id', 'reference_no', 'ref_id'],
     date: ['date', 'txn_date', 'transaction_date', 'value_date', 'posting_date'],
     narration: ['narration', 'description', 'remarks', 'particulars', 'transaction_details', 'memo'],
     credit: ['credit', 'deposit', 'cr_amount', 'credit_amount', 'inflow'],
@@ -56,7 +57,7 @@ const ROLE_FIELD_SYNONYMS: Record<DetectedRole, Record<string, string[]>> = {
     mode: ['mode', 'type', 'channel', 'payment_mode', 'txn_type', 'transfer_type'],
   },
   ledger: {
-    entry_id: ['entry_id', 'ledger_entry_id', 'ledger_id', 'journal_id', 'record_id', 'id'],
+    entry_id: ['entry_id', 'ledger_entry_id', 'ledger_id', 'journal_id', 'record_id'],
     invoice_id: ['invoice_id', 'inv_id', 'invoice_no', 'bill_no', 'bill_number', 'invoice_number'],
     expected_amount: ['expected_amount', 'invoice_amount', 'bill_amount', 'amount_due', 'amount'],
     received_amount: ['received_amount', 'paid_amount', 'amount_received', 'settled_amount'],
@@ -103,7 +104,7 @@ export function detectSchemaHeuristic(
         const hNorm = normHeaders[i]!;
         const rawH = rawHeaders[i]!;
 
-        if (synonyms.includes(hNorm) || synonyms.some((s) => hNorm.includes(s) || s.includes(hNorm))) {
+        if (synonyms.includes(hNorm) || synonyms.some((s) => s.length >= 4 && (hNorm.includes(s) || s.includes(hNorm)))) {
           scores[role].matches[canonicalField] = rawH;
           matchedFieldCount++;
 
@@ -177,9 +178,8 @@ export async function detectSchemaWithLlm(
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+      model: DEFAULT_GEMINI_MODEL,
       generationConfig: {
-        temperature: 0,
         responseMimeType: 'application/json',
       },
     });
@@ -388,3 +388,6 @@ export async function validateAndNormalizeUploads(
     },
   };
 }
+
+export const validateAndNormalizeIntake = validateAndNormalizeUploads;
+
