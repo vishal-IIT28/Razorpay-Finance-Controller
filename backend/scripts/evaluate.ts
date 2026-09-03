@@ -2,14 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
+import { scoreMatchesAgainstGroundTruth, GroundTruthEntry } from '../src/engine/evaluator';
 
 const prisma = new PrismaClient();
-
-type GroundTruth = {
-  bank_txn_ids: string[];
-  ledger_entry_id: string | null;
-  anomaly_type: string;
-};
 
 async function evaluateRun(runId?: string, isLatest?: boolean, dataset: 'default' | 'holdout' = 'default') {
   try {
@@ -40,67 +35,24 @@ async function evaluateRun(runId?: string, isLatest?: boolean, dataset: 'default
       console.error(`❌ Ground truth file not found at: ${gtPath}`);
       process.exit(1);
     }
-    const groundTruth: Record<string, GroundTruth> = JSON.parse(fs.readFileSync(gtPath, 'utf8'));
+    const groundTruth: Record<string, GroundTruthEntry> = JSON.parse(fs.readFileSync(gtPath, 'utf8'));
 
-    // 3. Load Match Results
+    // 3. Load Match Results & Score
     const matches = await prisma.matchResult.findMany({ where: { runId: run.id } });
     const matchMap = new Map<string, any>();
     for (const m of matches) {
-      if (m.paymentId) {
-        matchMap.set(m.paymentId, m);
-      }
+      if (m.paymentId) matchMap.set(m.paymentId, m);
     }
-
-    let tp = 0;
-    let fp = 0;
-    let fn = 0;
-
-    const anomalyStats: Record<string, { tp: number; fp: number; fn: number }> = {
-      exact: { tp: 0, fp: 0, fn: 0 },
-      amount_mismatch: { tp: 0, fp: 0, fn: 0 },
-      date_drift: { tp: 0, fp: 0, fn: 0 },
-      narration_variance: { tp: 0, fp: 0, fn: 0 },
-      missing: { tp: 0, fp: 0, fn: 0 },
-      split: { tp: 0, fp: 0, fn: 0 },
-    };
-
-    for (const [paymentId, truth] of Object.entries(groundTruth)) {
-      const match = matchMap.get(paymentId);
-      const anomalyType = truth.anomaly_type;
-      
-      if (!anomalyStats[anomalyType]) {
-        anomalyStats[anomalyType] = { tp: 0, fp: 0, fn: 0 };
-      }
-
-      // 'missing' anomalies shouldn't be fully matched because they have no bank record.
-      const shouldMatch = truth.bank_txn_ids.length > 0 && truth.ledger_entry_id !== null;
-
-      if (match) {
-        // Engine made a match. Is it correct?
-        const engineBankIds = match.bankTxnId ? match.bankTxnId.split(',').map((id: string) => id.trim()).sort() : [];
-        const truthBankIds = [...truth.bank_txn_ids].sort();
-        
-        const bankExactMatch = engineBankIds.length === truthBankIds.length && 
-                               engineBankIds.every((id: string, idx: number) => id === truthBankIds[idx]);
-        
-        const ledgerExactMatch = match.ledgerEntryId === truth.ledger_entry_id;
-
-        if (shouldMatch && bankExactMatch && ledgerExactMatch) {
-          tp++;
-          anomalyStats[anomalyType].tp++;
-        } else {
-          // Matched incorrectly (mismatch)
-          fp++;
-          anomalyStats[anomalyType].fp++;
-        }
-      } else {
-        // Engine didn't make a match.
-        if (shouldMatch) {
-          fn++;
-          anomalyStats[anomalyType].fn++;
-        }
-      }
-    }
+    const scoreResult = scoreMatchesAgainstGroundTruth(matches, groundTruth);
+    const {
+      precision: overallPrecision,
+      recall: overallRecall,
+      f1: overallF1,
+      tp,
+      fp,
+      fn,
+      anomalyBreakdown: anomalyStats,
+    } = scoreResult;
 
     const calcPrecision = (t: number, f: number) => (t + f === 0 ? 'N/A' : (t / (t + f) * 100).toFixed(1) + '%');
     const calcRecall = (t: number, f: number) => (t + f === 0 ? 'N/A' : (t / (t + f) * 100).toFixed(1) + '%');
@@ -110,10 +62,6 @@ async function evaluateRun(runId?: string, isLatest?: boolean, dataset: 'default
       const r = t / (t + fnVal);
       return ((2 * p * r) / (p + r) * 100).toFixed(1) + '%';
     };
-
-    const overallPrecision = tp + fp === 0 ? 0 : tp / (tp + fp);
-    const overallRecall = tp + fn === 0 ? 0 : tp / (tp + fn);
-    const overallF1 = tp + fp + fn === 0 ? 0 : (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall || 1);
 
     console.log(`\n=== Evaluator Results (Run: ${run.id}) [Dataset: ${dataset}] ===`);
     console.log(`Overall Precision: ${(overallPrecision * 100).toFixed(2)}%`);

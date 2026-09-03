@@ -132,12 +132,16 @@ export async function detectUploadedSchemas(files: File[]): Promise<DetectSchema
 
 // 2. Reconciliation Intake (Starts Background Pipeline)
 export async function startReconciliation(
-  filePayloads: Array<{ file: File; assignedRole: DetectedRole }>
+  filePayloads: Array<{ file: File; assignedRole: DetectedRole }>,
+  datasetLabel?: 'default' | 'holdout'
 ): Promise<ReconcileStartResponse> {
   const formData = new FormData();
   for (const item of filePayloads) {
     // If the user overrode the role, use field name or upload as named file
     formData.append(item.assignedRole, item.file);
+  }
+  if (datasetLabel) {
+    formData.append('dataset_label', datasetLabel);
   }
 
   const res = await fetch(`${API_BASE}/api/reconcile`, {

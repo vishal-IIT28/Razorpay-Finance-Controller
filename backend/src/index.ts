@@ -32,19 +32,48 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FinReconcile AI API is running' });
 });
 
-// Sample Datasets for 1-Click UI Demo & Evaluation
+export const SAMPLE_FILES: Record<string, string[]> = {
+  default: ['razorpay_payments.csv', 'bank_statement.csv', 'internal_ledger.csv'],
+  holdout: ['razorpay_payments.csv', 'bank_statement.csv', 'internal_ledger.csv'],
+};
+
+// Sample Datasets for 1-Click UI Demo & Evaluation (Strict Allowlist + Path Containment)
 app.get('/api/samples/:dataset/:filename', (req: Request, res: Response): void => {
   const datasetParam = getParam(req.params.dataset);
   const filenameParam = getParam(req.params.filename);
-  const dataset = datasetParam === 'holdout' ? 'holdout' : '';
-  const filename = filenameParam || '';
+
+  // 1. Validate dataset against strict allowlist
+  const allowedFiles = SAMPLE_FILES[datasetParam];
+  if (!allowedFiles) {
+    res.status(400).json({ error: 'Invalid dataset' });
+    return;
+  }
+
+  // 2. Validate filename against strict allowlist
+  const matchedFilename = allowedFiles.find((f) => f === filenameParam);
+  if (!matchedFilename) {
+    res.status(404).json({ error: 'Sample file not found' });
+    return;
+  }
+
+  // 3. Construct path exclusively from allowlisted safe constants
   const repoRoot = path.resolve(__dirname, '../..');
-  const filePath = path.resolve(repoRoot, 'data', dataset, filename);
+  const baseDir = path.resolve(repoRoot, 'data');
+  const datasetFolder = datasetParam === 'holdout' ? 'holdout' : '';
+  const filePath = path.resolve(baseDir, datasetFolder, matchedFilename);
+
+  // 4. Defense-in-depth: containment check on final resolved path
+  if (!filePath.startsWith(baseDir + path.sep) && filePath !== baseDir) {
+    res.status(400).json({ error: 'Invalid request' });
+    return;
+  }
+
+  // 5. Serve file or return generic error
   if (fs.existsSync(filePath)) {
     res.setHeader('Content-Type', 'text/csv');
     res.sendFile(filePath);
   } else {
-    res.status(404).json({ error: `Sample file not found: ${filePath}` });
+    res.status(404).json({ error: 'Sample file not found' });
   }
 });
 
@@ -99,11 +128,14 @@ app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Pr
     }
 
     const validRoles: Array<'razorpay' | 'bank' | 'ledger'> = ['razorpay', 'bank', 'ledger'];
-    const filePayloads = uploadedFiles.map((file) => ({
-      filename: file.originalname || file.filename,
-      content: fs.readFileSync(file.path, 'utf-8'),
-      explicitRole: validRoles.includes(file.fieldname as any) ? (file.fieldname as 'razorpay' | 'bank' | 'ledger') : undefined,
-    }));
+    const filePayloads = uploadedFiles.map((file) => {
+      const isExplicitRole = validRoles.includes(file.fieldname as any);
+      return {
+        filename: file.originalname || file.filename,
+        content: fs.readFileSync(file.path, 'utf-8'),
+        ...(isExplicitRole ? { explicitRole: file.fieldname as 'razorpay' | 'bank' | 'ledger' } : {}),
+      };
+    });
 
     // Step 1: Validate roles & normalize datasets
     const validation = await validateAndNormalizeUploads(filePayloads);
@@ -130,10 +162,13 @@ app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Pr
     });
 
     const isSync = req.query.sync === 'true';
+    const rawDatasetLabel = req.body?.dataset_label || req.query?.dataset_label;
+    const datasetLabel: 'default' | 'holdout' | undefined =
+      rawDatasetLabel === 'default' || rawDatasetLabel === 'holdout' ? rawDatasetLabel : undefined;
 
     // Step 3: Trigger pipeline execution
     if (isSync) {
-      const summaryPayload = await pipelineManager.executePipeline(run.id, razorpay, bank, ledger);
+      const summaryPayload = await pipelineManager.executePipeline(run.id, razorpay, bank, ledger, datasetLabel);
       res.json({
         message: 'Reconciliation pipeline completed (sync mode).',
         detected_roles: validation.detected,
@@ -141,7 +176,7 @@ app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Pr
       });
     } else {
       // Background execution
-      pipelineManager.executePipeline(run.id, razorpay, bank, ledger).catch((err) => {
+      pipelineManager.executePipeline(run.id, razorpay, bank, ledger, datasetLabel).catch((err) => {
         console.error(`[Background pipeline failure for run ${run.id}]`, err);
       });
 
@@ -481,6 +516,10 @@ app.get(['/api/chat/:runId', '/api/runs/:runId/chat'], async (req: Request, res:
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+export { app };
+
+if (process.env.NODE_ENV !== 'test' && !process.env.NODE_TEST_CONTEXT && (require.main === module || process.argv[1]?.includes('src/index.ts') || process.argv[1]?.includes('dist/index.js'))) {
+  app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+  });
+}

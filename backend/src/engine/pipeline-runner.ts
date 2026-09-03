@@ -1,8 +1,11 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { runDeterministicPass, RzpRecord, BankRecord, LedgerRecord, MatchResult } from './deterministic';
 import { runFuzzyPass } from './fuzzy';
 import { runLlmPass } from './llm';
+import { scoreMatchesAgainstGroundTruth, GroundTruthEntry } from './evaluator';
 
 const prisma = new PrismaClient();
 
@@ -52,7 +55,8 @@ export class PipelineManager extends EventEmitter {
     runId: string,
     razorpayData: RzpRecord[],
     bankData: BankRecord[],
-    ledgerData: LedgerRecord[]
+    ledgerData: LedgerRecord[],
+    datasetLabel?: 'default' | 'holdout'
   ) {
     this.activeRuns.add(runId);
     const nowIso = () => new Date().toISOString();
@@ -66,6 +70,7 @@ export class PipelineManager extends EventEmitter {
           total_records: razorpayData.length,
           bank_records: bankData.length,
           ledger_records: ledgerData.length,
+          dataset_label: datasetLabel || null,
           status: 'processing',
         },
       });
@@ -178,6 +183,31 @@ export class PipelineManager extends EventEmitter {
       const exceptionLogs = buildExceptionLogs(pass3Result.unmatched, pass3Result.decisions);
       const matchRate = razorpayData.length === 0 ? 0 : Number(((allMatches.length / razorpayData.length) * 100).toFixed(1));
 
+      // Auto-Score against ground truth if datasetLabel provided
+      let precision: number | null = null;
+      let recall: number | null = null;
+
+      if (datasetLabel === 'default' || datasetLabel === 'holdout') {
+        try {
+          const repoRoot = path.resolve(__dirname, '../../..');
+          const baseDir = path.resolve(repoRoot, 'data');
+          const datasetFolder = datasetLabel === 'holdout' ? 'holdout' : '';
+          const gtPath = path.resolve(baseDir, datasetFolder, 'ground_truth.json');
+
+          if (fs.existsSync(gtPath)) {
+            const gtData: Record<string, GroundTruthEntry> = JSON.parse(fs.readFileSync(gtPath, 'utf-8'));
+            const evaluation = scoreMatchesAgainstGroundTruth(allMatches, gtData);
+            precision = evaluation.precision;
+            recall = evaluation.recall;
+            console.log(`[Auto-Scoring (${datasetLabel})] Precision: ${(precision * 100).toFixed(2)}%, Recall: ${(recall * 100).toFixed(2)}%`);
+          } else {
+            console.warn(`[Auto-Scoring Warning] Ground truth file not found at: ${gtPath}`);
+          }
+        } catch (scoringError) {
+          console.warn(`[Auto-Scoring Warning] Error computing ground truth scores for dataset "${datasetLabel}":`, scoringError);
+        }
+      }
+
       // Persist results to DB
       await prisma.reconciliationRun.update({
         where: { id: runId },
@@ -187,6 +217,8 @@ export class PipelineManager extends EventEmitter {
           matchedRecords: allMatches.length,
           exceptions: exceptionLogs.length,
           durationMs: total_ms,
+          precision,
+          recall,
           matchResults: {
             create: allMatches.map((match) => ({
               paymentId: match.payment_id,
@@ -211,6 +243,9 @@ export class PipelineManager extends EventEmitter {
       const summaryPayload = {
         run_id: runId,
         status: 'completed',
+        dataset_label: datasetLabel || null,
+        precision,
+        recall,
         summary: {
           total_records: razorpayData.length,
           total_matched: allMatches.length,

@@ -171,6 +171,10 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         duration_ms: run.durationMs,
         precision_pct: run.precision !== null ? Number((run.precision * 100).toFixed(2)) : null,
         recall_pct: run.recall !== null ? Number((run.recall * 100).toFixed(2)) : null,
+        metrics_note:
+          run.precision === null
+            ? 'Precision/recall unavailable: this run was not matched against a known ground-truth dataset.'
+            : undefined,
         pass_breakdown: {
           pass1_deterministic: pass1,
           pass2_fuzzy: pass2,
@@ -412,8 +416,9 @@ CRITICAL INSTRUCTIONS:
 1. ALWAYS use the provided tools (getRunSummary, getRecordDetails, listExceptions, listMatchesByPass, searchRunData) to look up facts before answering. NEVER invent, hallucinate, or assume record IDs, statuses, amounts, or reasons.
 2. Ground all answers strictly in the tool outputs and cite specific IDs explicitly: payment_id (e.g. pay_XXXX), bank_txn_id (e.g. TXNXXXX), and ledger_entry_id (e.g. LED-XXXX).
 3. If an unmatched exception is asked about, explain the recorded reasoning from the audit log and the suggested action clearly.
-4. If a query cannot be answered from the database records or tools (e.g. external data like weather, or nonexistent IDs), say so explicitly and decline rather than hallucinating.
-5. Provide concise, professional, audit-ready summaries with formatted markdown tables or bullet points when helpful.`,
+4. Precision and recall metrics are only available for runs benchmarked against known ground-truth datasets. If precision/recall are null or unavailable in getRunSummary, report clearly (referencing the metrics_note) that precision/recall are unavailable because this run was not scored against a ground-truth dataset, rather than treating it as an error or hallucinating numbers.
+5. If a query cannot be answered from the database records or tools (e.g. external data like weather, or nonexistent IDs), say so explicitly and decline rather than hallucinating.
+6. Provide concise, professional, audit-ready summaries with formatted markdown tables or bullet points when helpful.`,
     generationConfig: {
       temperature: 0,
     },

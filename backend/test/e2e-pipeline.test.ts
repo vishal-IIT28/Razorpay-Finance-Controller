@@ -76,7 +76,7 @@ describe('End-to-End Pipeline & Export Conformance', () => {
       exported_at: new Date().toISOString(),
       run: {
         id: 'mock-run-id-123',
-        status: 'COMPLETED',
+        status: 'completed',
         total_records: 150,
         matched_records: 127,
         match_rate: 84.7,

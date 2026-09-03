@@ -54,13 +54,14 @@ export default function FinReconcileApp() {
 
   // Trigger reconciliation from UploadView
   const handleStartReconciliation = async (
-    files: Array<{ file: File; assignedRole: DetectedRole }>
+    files: Array<{ file: File; assignedRole: DetectedRole }>,
+    datasetLabel?: 'default' | 'holdout'
   ) => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      const response = await startReconciliation(files);
+      const response = await startReconciliation(files, datasetLabel);
       setActiveRunId(response.run_id);
       // Move to View 2 (Live Stream)
       setActiveView('live-stream');

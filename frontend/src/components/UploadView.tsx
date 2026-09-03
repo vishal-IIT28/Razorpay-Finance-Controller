@@ -35,7 +35,8 @@ export interface UploadedFileItem {
 
 interface UploadViewProps {
   onStartReconciliation: (
-    files: Array<{ file: File; assignedRole: DetectedRole }>
+    files: Array<{ file: File; assignedRole: DetectedRole }>,
+    datasetLabel?: 'default' | 'holdout'
   ) => void;
   isSubmitting?: boolean;
 }
@@ -83,11 +84,15 @@ export default function UploadView({
   const [globalError, setGlobalError] = useState<{ title: string; message: string; type: 'error' | 'warning' } | null>(null);
   const [isDetectingAll, setIsDetectingAll] = useState(false);
   const [loadingPreset, setLoadingPreset] = useState<'holdout' | 'tuned' | null>(null);
+  const [selectedDatasetLabel, setSelectedDatasetLabel] = useState<'default' | 'holdout' | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Process newly added files and run AI schema detection
-  const handleFilesAdded = async (newFiles: File[]) => {
+  const handleFilesAdded = async (newFiles: File[], isPreset: boolean = false) => {
     setGlobalError(null);
+    if (!isPreset) {
+      setSelectedDatasetLabel(undefined);
+    }
     const validCsvs = newFiles.filter(
       (f) => f.name.toLowerCase().endsWith('.csv') || f.type === 'text/csv'
     );
@@ -111,35 +116,30 @@ export default function UploadView({
       status: 'detecting',
     }));
 
-    setItems((prev) => [...prev, ...newItems]);
+    setItems(newItems);
     setIsDetectingAll(true);
 
     try {
-      // Call real backend schema detection endpoint POST /api/detect-schema
-      const response = await detectUploadedSchemas(validCsvs);
+      const detectionResult = await detectUploadedSchemas(validCsvs);
 
-      setItems((prev) =>
-        prev.map((item) => {
-          const matchedDetection = response.files.find(
-            (d) => d.filename === item.file.name
-          );
-
-          if (matchedDetection) {
-            return {
-              ...item,
-              assignedRole: matchedDetection.role,
-              detection: matchedDetection,
-              status: matchedDetection.role === 'unknown' ? 'ready' : 'ready',
-            };
-          }
-          return item;
+      // Map detection results to items by filename order
+      setItems(
+        newItems.map((item, idx) => {
+          const det = detectionResult.files[idx];
+          return {
+            ...item,
+            assignedRole: det?.role || 'unknown',
+            detection: det || null,
+            status: det && det.role !== 'unknown' ? 'ready' : 'error',
+            errorMessage: det?.role === 'unknown' ? 'Role could not be identified' : undefined,
+          };
         })
       );
     } catch (err: any) {
-      console.error('[Schema detection error]', err);
+      console.error('[Schema detection failed]', err);
       setGlobalError({
         title: 'Schema Detection Service Error',
-        message: err?.message || 'Failed to connect to backend schema detection API at http://localhost:3001/api/detect-schema.',
+        message: err?.message || 'Failed to connect to backend schema detection API.',
         type: 'error',
       });
       setItems((prev) =>
@@ -158,8 +158,9 @@ export default function UploadView({
   const handleLoadPreset = async (dataset: 'holdout' | 'tuned') => {
     setLoadingPreset(dataset);
     setGlobalError(null);
+    const folder = dataset === 'holdout' ? 'holdout' : 'default';
+    setSelectedDatasetLabel(folder);
     try {
-      const folder = dataset === 'holdout' ? 'holdout' : 'default';
       const filenames = ['razorpay_payments.csv', 'bank_statement.csv', 'internal_ledger.csv'];
 
       const filePromises = filenames.map(async (filename) => {
@@ -171,9 +172,10 @@ export default function UploadView({
 
       const files = await Promise.all(filePromises);
       // Route through real AI detection
-      await handleFilesAdded(files);
+      await handleFilesAdded(files, true);
     } catch (err: any) {
       console.error('[Preset load error]', err);
+      setSelectedDatasetLabel(undefined);
       setGlobalError({
         title: 'Preset Load Error',
         message: err?.message || 'Failed to fetch benchmark sample files from backend.',
@@ -196,6 +198,7 @@ export default function UploadView({
 
   const handleClearAll = () => {
     setItems([]);
+    setSelectedDatasetLabel(undefined);
     setGlobalError(null);
   };
 
@@ -237,7 +240,7 @@ export default function UploadView({
     const payloads = items
       .filter((i) => i.assignedRole !== 'unknown')
       .map((i) => ({ file: i.file, assignedRole: i.assignedRole }));
-    onStartReconciliation(payloads);
+    onStartReconciliation(payloads, selectedDatasetLabel);
   };
 
   return (
