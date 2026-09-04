@@ -188,20 +188,25 @@ npx tsx scripts/evaluate.ts --latest --dataset=holdout
 
 ---
 
-## ⚖️ Known Limitations & Architectural Tradeoffs
+## ⚖️ Known Limitations & Architectural Scope
 
-1. **Zero-Temperature LLM Evaluation Tradeoff (`temperature: 0`)**:
-   - Setting `temperature: 0` ensures strict determinism and reproducible benchmark grading across repeated evaluator runs.
-   - *Tradeoff*: Clamping temperature eliminated prompt creativity on ambiguous multi-leg split settlements, costing exactly 1 split match on the tuned dataset (split recall was 15/16 TP under `temperature: 0` vs 16/16 TP under `temperature: 0.2`).
-2. **Q&A Agent Test Coverage Scope**:
-   - `npm test` runs 100% offline and validates database tool executors (`getRunSummary`, `getRecordDetails`, `listExceptions`, `listMatchesByPass`), query schemas, and PostgreSQL `conversationId` thread isolation directly.
-   - *Scope Distinction*: The live agentic tool-selection loop (Gemini parsing function declarations and choosing which tool to invoke) requires live Gemini API connectivity and is verified via `npm run test:integration` rather than offline unit mocks.
-3. **Pass 1 Narration Reference Matching Assumption**:
-   - Pass 1 assumes the full Razorpay payment ID (`pay_...`) is embedded within the bank statement transaction narration.
-   - *Real-World Consideration*: While standard for direct gateway settlement webhooks, messy or truncated bank statement feeds will fail Pass 1 exact lookup and gracefully route to Pass 2 (6-character fuzzy ID fragment matching) or Pass 3 (LLM contextual reasoning).
-4. **Large Fee-Gap Outliers (>2% Variance)**:
+1. **No Authentication or Authorization**:
+   - All backend REST endpoints are unauthenticated. Any network client can trigger reconciliation runs or retrieve historical run results and chat histories by `runId`.
+2. **CORS Boundary & Single-Origin Scope**:
+   - Cross-Origin Resource Sharing is restricted to a single configured origin via `FRONTEND_URL` (defaulting to `http://localhost:3000`). However, there is no per-user session authentication or token verification beyond origin validation.
+3. **Automated Precision/Recall Scoring Scope**:
+   - Precision, recall, and F1 auto-scoring are intentionally executed only when reconciling the two known benchmark datasets (`default` and `holdout`) with verified ground truth files (`ground_truth.json`). Real user-uploaded datasets are correctly left unscored rather than generating artificial or misleading benchmark figures.
+4. **Ground Truth Scoring Membership Assumption**:
+   - The evaluation scoring function assumes every engine-produced match corresponds to a `payment_id` present in the reference ground truth file. While ground truth currently covers 100% of generated records, a hypothetical engine match on an extraneous ID completely absent from ground truth would not currently be penalized as a false positive.
+5. **Zero-Temperature LLM Evaluation Tradeoff (`temperature: 0`)**:
+   - Setting `temperature: 0` ensures strict determinism and reproducible benchmark grading across repeated evaluator runs. Clamping temperature eliminated prompt creativity on ambiguous multi-leg split settlements, costing exactly 1 split match on the tuned dataset (split recall was 15/16 TP under `temperature: 0` vs 16/16 TP under `temperature: 0.2`).
+6. **Q&A Agent Test Coverage Scope**:
+   - `npm test` runs 100% offline and validates database tool executors (`getRunSummary`, `getRecordDetails`, `listExceptions`, `listMatchesByPass`), query schemas, and PostgreSQL `conversationId` thread isolation directly. The live Gemini function-calling loop requires API connectivity and is verified via `npm run test:integration`.
+7. **Pass 1 Narration Reference Matching Assumption**:
+   - Pass 1 assumes the full Razorpay payment ID (`pay_...`) is embedded within the bank statement transaction narration. Messy or truncated bank statement feeds will fail Pass 1 exact lookup and gracefully route to Pass 2 (6-character fuzzy ID fragment matching) or Pass 3 (LLM contextual reasoning).
+8. **Large Fee-Gap Outliers (>2% Variance)**:
    - Transactions with unexplained fee gaps exceeding 2% without itemized deduction logs (e.g. 5%–28% bank deductions) are intentionally routed to the Exception Queue rather than guessing, preserving **100.00% precision**.
-5. **Duplicate Entries (Formally Descoped)**:
+9. **Duplicate Entries (Formally Descoped)**:
    - Synthetic duplicate injection and de-duplication resolution were formally descoped for this buildathon release to prevent regressions on core multi-pass precision.
 
 ---

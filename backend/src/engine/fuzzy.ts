@@ -56,7 +56,10 @@ export function runFuzzyPass(
   });
 
   for (const rzp of unmatchedRzp) {
-    if (rzp.status !== 'captured') {
+    // Normalize status at comparison time (defense-in-depth): primary normalization
+    // happens at ingestion in schema-detector.ts, but direct callers and future code
+    // paths that bypass the schema-detector also need to be handled correctly.
+    if (rzp.status?.trim().toLowerCase() !== 'captured') {
       stillUnmatchedRzp.push(rzp);
       continue;
     }
@@ -123,8 +126,9 @@ function buildNotes(rzp: RzpRecord, bank: BankRecord, ledger: LedgerRecord): str
   const amountDiff = Math.abs(bankCredit - expectedNet);
 
   if (amountDiff > 0.01) {
+    const currency = rzp.currency?.trim() || 'INR';
     notes.push(
-      `Amount variance INR ${amountDiff.toFixed(2)}: Razorpay net INR ${expectedNet} vs bank credit INR ${bankCredit}. Likely gateway or bank fee.`
+      `Amount variance ${currency} ${amountDiff.toFixed(2)}: Razorpay net ${currency} ${expectedNet} vs bank credit ${currency} ${bankCredit}. Likely gateway or bank fee.`
     );
   }
 

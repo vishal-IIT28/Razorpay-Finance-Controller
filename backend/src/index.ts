@@ -17,9 +17,48 @@ dotenv.config({ path: ['.env', '../.env'] });
 const app = express();
 const port = process.env.PORT || 3001;
 const prisma = new PrismaClient();
-const upload = multer({ dest: 'uploads/' });
+// Ensure upload directory exists at startup
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads', { recursive: true });
+}
 
-app.use(cors());
+const upload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file — well above the largest sample CSV (~25 KB)
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.csv') {
+      cb(null, true);
+    } else {
+      // Returning false (not an Error) causes multer to skip the file silently in some
+      // versions; passing an Error ensures it surfaces as a rejected upload.
+      cb(new Error(`Unsupported file type "${ext}". Only .csv files are accepted.`));
+    }
+  },
+});
+
+/**
+ * Wraps upload.any() to catch multer validation errors (wrong type, file too large)
+ * and return a clean 400 JSON response rather than a 500 or unhandled exception.
+ */
+function runUpload(req: Request, res: Response): Promise<void> {
+  return new Promise((resolve, reject) => {
+    upload.any()(req, res, (err: any) => {
+      if (!err) return resolve();
+      const isMulterError = err?.code === 'LIMIT_FILE_SIZE' || err instanceof multer.MulterError;
+      const message = err?.code === 'LIMIT_FILE_SIZE'
+        ? 'File too large. Maximum allowed size is 10 MB per file.'
+        : (err?.message || 'File upload rejected.');
+      res.status(400).json({ error: message });
+      reject(isMulterError ? null : err); // only propagate non-multer errors
+    });
+  });
+}
+
+// Restrict cross-origin access to the configured frontend origin.
+// Set FRONTEND_URL in .env for local dev or production deployment.
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 
 function getParam(val: string | string[] | undefined): string {
@@ -78,7 +117,12 @@ app.get('/api/samples/:dataset/:filename', (req: Request, res: Response): void =
 });
 
 // Schema Detection Endpoint (inspect detected roles without executing pipeline)
-app.post('/api/detect-schema', upload.any(), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/detect-schema', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await runUpload(req, res);
+  } catch {
+    return; // multer error already sent as 400; non-multer errors re-thrown (unexpected)
+  }
   const uploadedFiles = (req.files as Express.Multer.File[]) || [];
   try {
     if (uploadedFiles.length === 0) {
@@ -115,7 +159,12 @@ app.post('/api/detect-schema', upload.any(), async (req: Request, res: Response)
 });
 
 // Flexible Reconciliation Intake Endpoint (Supports 1-N arbitrary CSV files & async execution)
-app.post('/api/reconcile', upload.any(), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/reconcile', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await runUpload(req, res);
+  } catch {
+    return; // multer error already sent as 400
+  }
   const uploadedFiles = (req.files as Express.Multer.File[]) || [];
   console.log('[API /api/reconcile RECEIVED]:', uploadedFiles.map((f) => ({ filename: f.originalname, fieldname: f.fieldname })));
 

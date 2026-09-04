@@ -85,7 +85,10 @@ export function runDeterministicPass(
   for (const l of ledger) ledgerMap.set(l.entry_id, l);
 
   for (const rzp of razorpay) {
-    if (rzp.status !== 'captured') {
+    // Normalize status at comparison time (defense-in-depth): primary normalization
+    // happens at ingestion in schema-detector.ts, but direct callers and future code
+    // paths that bypass the schema-detector also need to be handled correctly.
+    if (rzp.status?.trim().toLowerCase() !== 'captured') {
       unmatchedRzp.push(rzp);
       continue;
     }

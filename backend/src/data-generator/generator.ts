@@ -84,9 +84,16 @@ export function generateData(customSeed?: number, customOutputDir?: string) {
     
     // 1. Exact Match (40%)
     if (rand < 0.40) {
+      // Occasionally emit a mixed-case status variant ('Captured') so the case-
+      // insensitivity fix in schema-detector.ts is exercised by real synthetic data,
+      // not just by hand argument. ~10% of exact-match records use a variant.
+      // This does NOT change total matched/unmatched distribution.
+      const statusVariants = ['captured', 'captured', 'captured', 'captured', 'captured',
+                              'captured', 'captured', 'captured', 'captured', 'Captured'];
+      const statusValue = statusVariants[i % statusVariants.length]!;
       razorpayRecords.push({
         payment_id: paymentId, order_id: orderId, amount: baseAmount, currency: 'INR',
-        status: 'captured', method: 'upi', description: `Payment for ${invoiceId}`,
+        status: statusValue, method: 'upi', description: `Payment for ${invoiceId}`,
         created_at: date.toISOString(), settled_at: date.toISOString(), fee, tax,
         settlement_id: `setl_${faker.string.alphanumeric(14)}`
       });

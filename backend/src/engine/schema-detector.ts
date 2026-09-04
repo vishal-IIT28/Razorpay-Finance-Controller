@@ -284,7 +284,10 @@ export function parseAndNormalizeData(
       order_id: text(getCol(row, 'order_id')),
       amount: toMoney(getCol(row, 'amount') as string),
       currency: text(getCol(row, 'currency') || 'INR'),
-      status: text(getCol(row, 'status') || 'captured'),
+      // Normalize status to lowercase so case variants from real exports ('Captured',
+      // 'CAPTURED', etc.) are treated identically to the canonical 'captured' string
+      // that deterministic.ts and fuzzy.ts compare against.
+      status: text(getCol(row, 'status') || 'captured').toLowerCase(),
       method: text(getCol(row, 'method') || 'upi'),
       description: text(getCol(row, 'description')),
       created_at: text(getCol(row, 'created_at')),
